@@ -1,11 +1,14 @@
 package com.mikesamuel.url;
 
+import java.util.Arrays;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 /**
- * Specifying multiple sub-predicates of the same kind ORs those
+ * Specifying multiple sub-classifiers of the same kind ORs those
  * together.
- * Predicates of one kind AND with predicates of another kind except
+ * Classifiers of one kind AND with classifiers of another kind except
  * where stated below.
  * For example,
  * <pre>
@@ -27,61 +30,63 @@ import com.google.common.collect.ImmutableList;
  * </pre>
  *
  * <p>If a URL's scheme does not naturally have an authority,
- * then it MUST not have an authority and any authority predicate
+ * then it MUST not have an authority and any authority classifier
  * is ignored.
  * For example, `file:` URLs and `data:` URLs do not naturally
  * have an authority.  `file:` by the nature of the scheme, and
  * `data:` because it is not a hierarchical scheme.
  *
  * <p>If a URL's scheme naturally has an authority then it MUST have an
- * authority and any authority predicate must also pass.
- * For example: `http:///` will never pass any predicate.
+ * authority and any authority classifier must also pass.
+ * For example: `http:///` will never pass any classifier.
  * <a href="https://w3c.github.io/FileAPI/#DefinitionOfScheme">Blobs</a>
  * naturally have an authority.
  *
  * <p>If a URL's scheme does not naturally have a path or query component
- * then path and query predicates will not be applied.
+ * then path and query classifiers will not be applied.
  * All hierarchical URLs naturally have both, so a `file:` URL MUST match
- * any query predicates.
+ * any query classifiers.
  *
  * <p>All URLs are treated as URI References, so fragments are allowed
  * regardless of scheme.
  *
  * <p>If a URL's scheme does not naturally have embedded content then
- * any content predicate is ignored.  For example, `http:` and other
+ * any content classifier is ignored.  For example, `http:` and other
  * hierarchical URLs do not have embedded content.
  *
  * <p>If a URL's scheme does naturally have embedded content, then it
- * MUST have embedded content and any content predicate must match
+ * MUST have embedded content and any content classifier must match
  * that content.  For example: `data:text/plain;base64` will not match
- * any predicate but `data:text/plain,` will match if the content
- * predicate matches the empty string.  Schemes that naturally have
+ * any classifier but `data:text/plain,` will match if the content
+ * classifier matches the empty string.  Schemes that naturally have
  * embedded content include `about:`, `blob:`, `data:`, and
  * `javascript:`.
  */
-public final class URLPredicateBuilder {
-  private URLPredicateBuilder() {
+public final class URLClassifierBuilder {
+  private URLClassifierBuilder() {
     // Use static factory
   }
 
   /** A new blank builder. */
-  public static URLPredicateBuilder builder() {
-    return new URLPredicateBuilder();
+  public static URLClassifierBuilder builder() {
+    return new URLClassifierBuilder();
   }
 
   /**
-   * Builds a predicate based on previous allow/match decisions.
+   * Builds a classifier based on previous allow/match decisions.
    * This may be reused after a call to build and subsequent calls to
-   * allow/match methods will not affect previously built predicates.
+   * allow/match methods will not affect previously built classifiers.
    */
-  public URLPredicate build() {
-    return new URLPredicateImpl(...);
+  public URLClassifier build() {
+    return null;  // TODO
+    // return new URLClassifierImpl(...);
   }
 
-  //// Flags that affect multiple sub-predicates.
+  //// Flags that affect multiple sub-classifiers.
   private boolean matchesNULs = false;
   // TODO: Move this to the URLContext
   private boolean matchMicrosoftPathBugForBug = false;
+  private boolean allowPathsThatReachRootsParent = false;
 
   /**
    * URLs with NULs are a common problem case.
@@ -90,20 +95,8 @@ public final class URLPredicateBuilder {
    * base64 encode and NULs in decoded will not cause a mismatch.
    * If allowing NULs is definitely required enable this.
    */
-  public URLPredicateBuilder matchesNULs(boolean allow) {
+  public URLClassifierBuilder matchesNULs(boolean allow) {
     this.matchesNULs = allow;
-    return this;
-  }
-
-  /**
-   * Microsoft uses back-slash ('\\') to separate file components and many
-   * Microsoft systems helpfully treat ('\\') as equivalent to the normal
-   * URL path component separator ('/').
-   * Enable this flag if you want to emulate this behavior.
-   * By default, you don't.
-   */
-  public URLPredicateBuilder matchMicrosoftPathBugForBug(boolean enable) {
-    this.matchMicrosoftPathBugForBug = enable;
     return this;
   }
 
@@ -115,29 +108,59 @@ public final class URLPredicateBuilder {
    * for x.originalUrlText in your output, but not if you plan on
    * using x.originalUrlText.
    */
-  public URLPredicateBuilder allowPathsThatReachRootsParent(boolean enable) {
-    this.allowPathsThatReachRootsParent = allowPathsThatReachRootsParent;
+  public URLClassifierBuilder allowPathsThatReachRootsParent(boolean enable) {
+    this.allowPathsThatReachRootsParent = enable;
+    return this;
   }
 
 
+  private final ImmutableSet.Builder<Scheme> allowedSchemes = ImmutableSet.builder();
+  private MediaTypeClassifier mediaTypeClassifier;
 
-  //// Sub-predicates of kind scheme     MATCH_ME://...
-  public URLPredicateBuilder matchesSchemes(Scheme... schemes);
-  public URLPredicateBuilder matchesSchemes(Iterable<? extends Scheme> schemes);
+  //// Sub-classifiers of kind scheme     MATCH_ME://...
   /**
+   * @see #matchesSchemes(Iterable)
+   */
+  public URLClassifierBuilder matchesSchemes(Scheme... schemes) {
+    return matchesSchemes(Arrays.asList(schemes));
+  }
+  /**
+   * Allows URLs with the given schemes assuming any per-component classifiers
+   * also pass.
+   */
+  public URLClassifierBuilder matchesSchemes(Iterable<? extends Scheme> schemes) {
+    this.allowedSchemes.addAll(schemes);
+    return this;
+  }
+  /**
+   * Matches data schemes
    * We can match data with an additional constraint on the mime-type.
    * We special-case data because content-types are not attached to
    * URLs with other schemes and its rare to want to match a data: URL
    * without caring about the type of data.
    */
-  public URLPredicateBuilder matchesData(MimeTypePredicate types);
+  public URLClassifierBuilder matchesData(MediaTypeClassifier c) {
+    this.mediaTypeClassifier = this.mediaTypeClassifier == null
+        ? c
+        : MediaTypeClassifier.or(this.mediaTypeClassifier, c);
+    return this;
+  }
 
-  //// Sub-predicates of kind authority  http://MATCH_ME/...
-  public URLPredicateBuilder matchesHosts(String... hostnames);
-  public URLPredicateBuilder matchesHosts(Iterable<? extends String> hostnames);
-  public URLPredicateBuilder matchesAuthority(AuthorityPredicate authMatcher);
+  //// Sub-classifiers of kind authority  http://MATCH_ME/...
+  public URLClassifierBuilder matchesHosts(String... hostnames) {
+    // TODO
+    return this;
+  }
+  public URLClassifierBuilder matchesHosts(Iterable<? extends String> hostnames) {
+    // TODO
+    return this;
+  }
+  public URLClassifierBuilder matchesAuthority(AuthorityClassifier authMatcher) {
+    // TODO
+    return this;
+  }
 
-  //// Sub-predicates of kind path       http://example.com/MATCH_ME?...
+  //// Sub-classifiers of kind path       http://example.com/MATCH_ME?...
   /**
    * In the glob, `**` matches one or more path components and * matches
    * a single path component at most.  Matching is done after processing the
@@ -155,65 +178,60 @@ public final class URLPredicateBuilder {
    * The following code-points may be %-encoded in a path glob to allow them
    * to be treated literally as part of a path component: ('/', '*', '?', '%').
    */
-  public URLPredicateBuilder matchesPathGlobs(String... pathGlobs) {
+  public URLClassifierBuilder matchesPathGlobs(String... pathGlobs) {
     return matchesPathGlobs(ImmutableList.copyOf(pathGlobs));
   }
-  public URLPredicateBuilder matchesPathGlobs(
+  public URLClassifierBuilder matchesPathGlobs(
       Iterable<? extends String> pathGlobs) {
-
+    // TODO
+    return this;
   }
   /**
    * Does not match any of the path globs where not(INVALID) == INVALID.
    */
-  public URLPredicateBuilder notMatchesPathGlobs(String... pathGlobs) {
+  public URLClassifierBuilder notMatchesPathGlobs(String... pathGlobs) {
     return notMatchesPathGlobs(ImmutableList.copyOf(pathGlobs));
   }
-  public URLPredicateBuilder notMatchesPathGlobs(
+  public URLClassifierBuilder notMatchesPathGlobs(
       Iterable<? extends String> pathGlobs) {
-
-  }
-  /**
-   * By default, path components like ("%2e", "%2e%2e") that, post decoding
-   * are ambiguous with the special path components (".", "..") will not be
-   * matched.  If these must be matched, then enable this but ensure that the
-   * server that processes these deals with these path components correctly.
-   * Default is TREAT_AS_INVALID
-   */
-  public URLPredicateBuilder matchesEncodedDots(EncodedDotStrategy strategy);
-  public enum EncodedDotStrategy {
-    TREAT_AS_INVALID,
-    DO_NOT_MATCH,
-    MATCH_AS_PATH,
-    MATCH_AS_DECODED,
+    return this;  // TODO
   }
 
-  //// Sub-predicates of kind query      http://example.com/?MATCH_ME#...
-  public URLPredicateBuilder matchesQuery(QueryPredicate queryPredicate);
+  //// Sub-classifiers of kind query      http://example.com/?MATCH_ME#...
+  public URLClassifierBuilder matchesQuery(QueryClassifier queryClassifier) {
+    return this;  // TODO
+  }
   /**
-   * Reverses the predicate where not(INVALID) == INVALID.
+   * Reverses the classifier where not(INVALID) == INVALID.
    */
-  public URLPredicateBuilder notMatchesQuery(QueryPredicate queryPredicate);
+  public URLClassifierBuilder notMatchesQuery(QueryClassifier queryClassifier) {
+    return this;  // TODO
+  }
 
-  //// Sub-predicates of kind fragment   http://example.com/#MATCH_ME
-  public URLPredicateBuilder matchesFragment(
-      FragmentPredicate fragmentPredicate);
+  //// Sub-classifiers of kind fragment   http://example.com/#MATCH_ME
+  public URLClassifierBuilder matchesFragment(
+      FragmentClassifier fragmentClassifier) {
+    return this;  // TODO
+  }
   /**
-   * Reverses the predicate where not(INVALID) == INVALID.
+   * Reverses the classifier where not(INVALID) == INVALID.
    */
-  public URLPredicateBuilder notMatchesFragment(
-      FragmentPredicate fragmentPredicate);
+  public URLClassifierBuilder notMatchesFragment(
+      FragmentClassifier fragmentClassifier) {
+    return this;  // TODO
+  }
 
-  //// Sub-predicates of kind content    javascript:MATCH_ME
+  //// Sub-classifiers of kind content    javascript:MATCH_ME
   ////                                   data:foo/bar,MATCH_ME
   /**
-   * Matches when the scheme-specific part matches the predicate.
+   * Matches when the scheme-specific part matches the classifier.
    * This is applied after any content metadata is stripped and after decoding.
    * For example,
    * data: URLs have the mime-type and any base64 specifier stripped, and if the
    * base64 is specified, the content is base64 decoded;
    * blob: URLs have the origin stripped.
    */
-  public URLPredicateBuilder matchesContent(ContentPredicate p) {
-
+  public URLClassifierBuilder matchesContent(ContentClassifier p) {
+    return this;  // TODO
   }
 }

@@ -14,7 +14,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 /**
- * Builds a predicate over URL queries.
+ * Builds a classifier over URL queries.
  *
  * <p>The operators below operate on a query string like
  * "{@code ?key0=value0&key1=value1}" after it has been decomposed into
@@ -23,33 +23,33 @@ import com.google.common.collect.Maps;
  * <p>For example, the query "{@code ?a=b%20c&a=d&e}" specifies the
  * key value pairs {@code [("a", "b c"), ("a", "d"), ("e", absent)]}.
  */
-public final class QueryPredicateBuilder {
+public final class QueryClassifierBuilder {
   private ImmutableSet.Builder<String> mayKeys = ImmutableSet.builder();
-  private Predicate<? super String> mayPredicate;
+  private Predicate<? super String> mayClassifier;
   private ImmutableSet.Builder<String> onceKeys = ImmutableSet.builder();
-  private Predicate<? super String> oncePredicate;
+  private Predicate<? super String> onceClassifier;
   private ImmutableSet.Builder<String> mustKeys = ImmutableSet.builder();
-  private Map<String, Predicate<? super Optional<String>>> valuePredicates =
+  private Map<String, Predicate<? super Optional<String>>> valueClassifiers =
       Maps.newLinkedHashMap();
 
-  private QueryPredicateBuilder() {
+  private QueryClassifierBuilder() {
     // Use static factory
   }
 
   /** A new blank builder. */
-  public static QueryPredicateBuilder builder() {
-    return new QueryPredicateBuilder();
+  public static QueryClassifierBuilder builder() {
+    return new QueryClassifierBuilder();
   }
 
   /**
-   * Builds a predicate based on previous allow/match decisions.
+   * Builds a classifier based on previous allow/match decisions.
    * This may be reused after a call to build and subsequent calls to
-   * allow/match methods will not affect previously built predicates.
+   * allow/match methods will not affect previously built classifiers.
    */
-  public QueryPredicate build() {
+  public QueryClassifier build() {
     ImmutableSet<String> mayKeySet = mayKeys.build();
-    Predicate<? super String> mayKeyPredicate = mayPredicate != null
-        ? mayPredicate
+    Predicate<? super String> mayKeyClassifier = mayClassifier != null
+        ? mayClassifier
         : mayKeySet.isEmpty()
         // If nothing specified, assume permissive.
         ? Predicates.alwaysTrue()
@@ -57,18 +57,18 @@ public final class QueryPredicateBuilder {
         : Predicates.alwaysFalse();
 
     ImmutableSet<String> onceKeySet = onceKeys.build();
-    Predicate<? super String> onceKeyPredicate = oncePredicate != null
-        ? oncePredicate
+    Predicate<? super String> onceKeyClassifier = onceClassifier != null
+        ? onceClassifier
         : Predicates.alwaysFalse();
 
     ImmutableSet<String> mustKeySet = mustKeys.build();
-    ImmutableMap<String, Predicate<? super Optional<String>>> valuePredicateMap =
-        ImmutableMap.copyOf(valuePredicates);
+    ImmutableMap<String, Predicate<? super Optional<String>>> valueClassifierMap =
+        ImmutableMap.copyOf(valueClassifiers);
 
     // If something may appear once or must appear, then it may appear.
-    if (!Predicates.alwaysTrue().equals(mayKeyPredicate)) {
-      if (!Predicates.alwaysFalse().equals(onceKeyPredicate)) {
-        mayKeyPredicate = Predicates.or(mayKeyPredicate, onceKeyPredicate);
+    if (!Predicates.alwaysTrue().equals(mayKeyClassifier)) {
+      if (!Predicates.alwaysFalse().equals(onceKeyClassifier)) {
+        mayKeyClassifier = Predicates.or(mayKeyClassifier, onceKeyClassifier);
       }
       mayKeySet = ImmutableSet.<String>builder()
           .addAll(mayKeySet)
@@ -77,13 +77,13 @@ public final class QueryPredicateBuilder {
           .build();
     }
 
-    return new QueryPredicateImpl(
+    return new QueryClassifierImpl(
         mayKeySet,
-        mayKeyPredicate,
+        mayKeyClassifier,
         onceKeySet,
-        onceKeyPredicate,
+        onceKeyClassifier,
         mustKeySet,
-        valuePredicateMap);
+        valueClassifierMap);
   }
 
   /**
@@ -94,18 +94,18 @@ public final class QueryPredicateBuilder {
    *
    * <p>All variants of this method operate on keys post-percent decoding.
    */
-  public QueryPredicateBuilder mayHaveKeys(String... keys) {
+  public QueryClassifierBuilder mayHaveKeys(String... keys) {
     return mayHaveKeys(Arrays.asList(keys));
   }
   /** @see #mayHaveKeys(String...) */
-  public QueryPredicateBuilder mayHaveKeys(Iterable<? extends String> keys) {
+  public QueryClassifierBuilder mayHaveKeys(Iterable<? extends String> keys) {
     this.mayKeys.addAll(keys);
     return this;
   }
   /** @see #mayHaveKeys(String...) */
-  public QueryPredicateBuilder mayHaveKeys(Predicate<? super String> p) {
-    mayPredicate = mayPredicate == null
-        ? p : Predicates.or(mayPredicate, p);
+  public QueryClassifierBuilder mayHaveKeys(Predicate<? super String> p) {
+    mayClassifier = mayClassifier == null
+        ? p : Predicates.or(mayClassifier, p);
     return this;
   }
 
@@ -114,18 +114,18 @@ public final class QueryPredicateBuilder {
    *
    * <p>All variants of this method operate on keys post-percent decoding.
    */
-  public QueryPredicateBuilder mayNotRepeatKeys(String... keys) {
+  public QueryClassifierBuilder mayNotRepeatKeys(String... keys) {
     return mayNotRepeatKeys(Arrays.asList(keys));
   }
   /** @see #mayNotRepeatKeys(String...) */
-  public QueryPredicateBuilder mayNotRepeatKeys(Iterable<? extends String> keys) {
+  public QueryClassifierBuilder mayNotRepeatKeys(Iterable<? extends String> keys) {
     this.onceKeys.addAll(keys);
     return this;
   }
   /** @see #mayNotRepeatKeys(String...) */
-  public QueryPredicateBuilder mayNotRepeatKeys(Predicate<? super String> p) {
-    oncePredicate = oncePredicate == null
-        ? p : Predicates.or(oncePredicate, p);
+  public QueryClassifierBuilder mayNotRepeatKeys(Predicate<? super String> p) {
+    onceClassifier = onceClassifier == null
+        ? p : Predicates.or(onceClassifier, p);
     return this;
   }
 
@@ -133,11 +133,11 @@ public final class QueryPredicateBuilder {
    * Specify which keys MUST appear ignoring order.
    * Does not match if any of the specified keys are missing.
    */
-  public QueryPredicateBuilder mustHaveKeys(String... keys) {
+  public QueryClassifierBuilder mustHaveKeys(String... keys) {
     return mustHaveKeys(Arrays.asList(keys));
   }
   /** @see #mustHaveKeys(String...) */
-  public QueryPredicateBuilder mustHaveKeys(Iterable<? extends String> keys) {
+  public QueryClassifierBuilder mustHaveKeys(Iterable<? extends String> keys) {
     mustKeys.addAll(keys);
     return this;
   }
@@ -159,41 +159,41 @@ public final class QueryPredicateBuilder {
    * times, the predicate will be applied to each value in the order
    * it appears.
    */
-  public QueryPredicateBuilder valueMustMatch(
+  public QueryClassifierBuilder valueMustMatch(
       String key,
-      Predicate<? super Optional<String>> valuePredicate) {
-    Predicate<? super Optional<String>> old = valuePredicates.put(
+      Predicate<? super Optional<String>> valueClassifier) {
+    Predicate<? super Optional<String>> old = valueClassifiers.put(
         Preconditions.checkNotNull(key),
-        Preconditions.checkNotNull(valuePredicate));
+        Preconditions.checkNotNull(valueClassifier));
     if (old != null) {
-      valuePredicates.put(
+      valueClassifiers.put(
           key,
-          Predicates.and(old, valuePredicate));
+          Predicates.and(old, valueClassifier));
     }
     return this;
   }
 }
 
-final class QueryPredicateImpl implements QueryPredicate {
+final class QueryClassifierImpl implements QueryClassifier {
   private final ImmutableSet<String> mayKeySet;
-  private final Predicate<? super String> mayKeyPredicate;
+  private final Predicate<? super String> mayKeyClassifier;
   private final ImmutableSet<String> onceKeySet;
-  private final Predicate<? super String> onceKeyPredicate;
+  private final Predicate<? super String> onceKeyClassifier;
   private final ImmutableSet<String> mustKeySet;
-  private final ImmutableMap<String, Predicate<? super Optional<String>>> valuePredicateMap;
+  private final ImmutableMap<String, Predicate<? super Optional<String>>> valueClassifierMap;
 
 
-  public QueryPredicateImpl(
-      ImmutableSet<String> mayKeySet, Predicate<? super String> mayKeyPredicate,
-      ImmutableSet<String> onceKeySet, Predicate<? super String> onceKeyPredicate,
+  public QueryClassifierImpl(
+      ImmutableSet<String> mayKeySet, Predicate<? super String> mayKeyClassifier,
+      ImmutableSet<String> onceKeySet, Predicate<? super String> onceKeyClassifier,
       ImmutableSet<String> mustKeySet,
-      ImmutableMap<String, Predicate<? super Optional<String>>> valuePredicateMap) {
+      ImmutableMap<String, Predicate<? super Optional<String>>> valueClassifierMap) {
     this.mayKeySet = mayKeySet;
-    this.mayKeyPredicate = mayKeyPredicate;
+    this.mayKeyClassifier = mayKeyClassifier;
     this.onceKeySet = onceKeySet;
-    this.onceKeyPredicate = onceKeyPredicate;
+    this.onceKeyClassifier = onceKeyClassifier;
     this.mustKeySet = mustKeySet;
-    this.valuePredicateMap = valuePredicateMap;
+    this.valueClassifierMap = valueClassifierMap;
   }
 
 
@@ -224,15 +224,15 @@ final class QueryPredicateImpl implements QueryPredicate {
               if (!valueOpt.isPresent()) { return Classification.INVALID; }
             }
             if (result == Classification.MATCH) {
-              if (!mayKeyPredicate.apply(key) && !mayKeySet.contains(key)) {
+              if (!mayKeyClassifier.apply(key) && !mayKeySet.contains(key)) {
                 result = Classification.NOT_A_MATCH;
               } else if (
                   !keysSeen.add(key)
-                  && (onceKeyPredicate.apply(key)
+                  && (onceKeyClassifier.apply(key)
                       || onceKeySet.contains(key))) {
                 result = Classification.NOT_A_MATCH;
               } else {
-                Predicate<? super Optional<String>> p = this.valuePredicateMap.get(key);
+                Predicate<? super Optional<String>> p = this.valueClassifierMap.get(key);
                 if (p != null) {
                   Optional<String> value = valueOpt.isPresent()
                       ? Optional.of(valueOpt.get().toString())

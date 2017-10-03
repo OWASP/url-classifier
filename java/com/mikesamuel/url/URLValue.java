@@ -72,11 +72,13 @@ public final class URLValue {
       this.inheritsPlaceholderAuthority = false;
       // Don't bother computing part ranges for a URL
       // that may fail the scheme filter.
+      this.pathSimplificationReachedRootsParent = false;  // TODO: is this legit
     } else {
       Absolutizer.Result abs = context.absolutizer.absolutize(originalUrlText);
       this.scheme  = abs.scheme;
       this.urlText = abs.absUrlText;
       this.ranges = abs.absUrlRanges;
+      this.pathSimplificationReachedRootsParent = abs.pathSimplificationReachedRootsParent;
       this.computedRanges = true;
       this.endOfScheme = Absolutizer.endOfScheme(this.urlText);
       final int phLen = URLContext.PLACEHOLDER_AUTHORITY.length();

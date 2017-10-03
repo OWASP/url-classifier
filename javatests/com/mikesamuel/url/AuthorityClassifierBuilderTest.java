@@ -10,10 +10,10 @@ import com.google.common.collect.ImmutableSet;
 
 
 @SuppressWarnings({ "javadoc", "static-method" })
-public final class AuthorityPredicateBuilderTest {
+public final class AuthorityClassifierBuilderTest {
 
   private static void runCommonTestsWith(
-      AuthorityPredicate p,
+      AuthorityClassifier p,
       URLContext context,
       String... shouldMatch) {
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
@@ -115,16 +115,16 @@ public final class AuthorityPredicateBuilderTest {
 
 
   @Test
-  public void testUnconfiguredPredicate() throws Exception {
+  public void testUnconfiguredClassifier() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder().build(),
+        AuthorityClassifierBuilder.builder().build(),
         URLContext.DEFAULT);
   }
 
   @Test
   public void testAllowLocalhost() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
            .matchesHosts("localhost")
            .build(),
         URLContext.DEFAULT,
@@ -132,7 +132,7 @@ public final class AuthorityPredicateBuilderTest {
         "http://loc%61lhost/",
         "http://localhos%74/");
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
            .matchesHostGlob("localhost")
            .build(),
         URLContext.DEFAULT,
@@ -144,7 +144,7 @@ public final class AuthorityPredicateBuilderTest {
   @Test
   public void testPunycodeUnicodeEquivalence() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
            .matchesHosts("xn--fsq")  // Mandarin for "example"
            .build(),
         URLContext.DEFAULT,
@@ -156,7 +156,7 @@ public final class AuthorityPredicateBuilderTest {
   @Test
   public void testSingleIntegerPortExclusion() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
            .matchesHosts("example", "example.com")
            .matchesPort(443)
            .build(),
@@ -169,7 +169,7 @@ public final class AuthorityPredicateBuilderTest {
   @Test
   public void testMultipleIntegerPortExclusionsOutOfOrder() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
            .matchesHosts("example", "example.com")
            .matchesPort(443, 80)
            .build(),
@@ -184,9 +184,9 @@ public final class AuthorityPredicateBuilderTest {
   }
 
   @Test
-  public void testSinglePortPredicate() throws Exception {
+  public void testSinglePortClassifier() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
            .matchesHosts("example", "example.com")
            .matchesPort(
                new Predicate<Integer>() {
@@ -207,7 +207,7 @@ public final class AuthorityPredicateBuilderTest {
   @Test
   public void testMultiplePortExclusion() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
            .matchesHosts("example", "example.com")
            .matchesPort(443)
            .matchesPort(new Predicate<Integer>() {
@@ -230,9 +230,9 @@ public final class AuthorityPredicateBuilderTest {
   }
 
   @Test
-  public void testUnamePredicatesAndCustomScheme() throws Exception {
+  public void testUnameClassifiersAndCustomScheme() throws Exception {
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
             .matchesHosts("server")
             .matchesUserName(
                 new Predicate<CharSequence>() {
@@ -256,12 +256,12 @@ public final class AuthorityPredicateBuilderTest {
   }
 
   @Test
-  public void testUnamePredicatesWithoutCustomScheme() throws Exception {
-    // URLPredicate should never pass Scheme.UNKNOWN through to
-    // AuthorityPredicate, but we should stake out a sensible behavior
+  public void testUnameClassifiersWithoutCustomScheme() throws Exception {
+    // URLClassifier should never pass Scheme.UNKNOWN through to
+    // AuthorityClassifier, but we should stake out a sensible behavior
     // if it's used standalone.
     runCommonTestsWith(
-        AuthorityPredicateBuilder.builder()
+        AuthorityClassifierBuilder.builder()
             .matchesHosts("server")
             .matchesUserName(
                 new Predicate<CharSequence>() {

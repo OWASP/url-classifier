@@ -11,10 +11,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 @SuppressWarnings({ "javadoc", "static-method" })
-public class QueryPredicateBuilderTest {
+public class QueryClassifierBuilderTest {
 
   private static void runCommonTestsWith(
-      QueryPredicate p,
+      QueryClassifier p,
       URLContext context,
       String... shouldMatch) {
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
@@ -74,7 +74,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testRestrictivePolicy() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mayHaveKeys(Predicates.alwaysFalse())
             .mustHaveKeys("NONCE")
             .build(),
@@ -84,7 +84,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testNoKeys() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mayHaveKeys(Predicates.alwaysFalse())
             .build(),
         URLContext.DEFAULT,
@@ -98,7 +98,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testAllowAllAC() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mayHaveKeys("a", "c")
             .mustHaveKeys("a")
             .build(),
@@ -118,7 +118,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testDisallowRepeatingA() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mayHaveKeys("a", "c")
             .mayNotRepeatKeys("a")
             .mustHaveKeys("a")
@@ -140,7 +140,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testValueDecoding() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mustHaveKeys("a", "c")
             .valueMustMatch("a", hasValue("b"))
             .valueMustMatch("c", hasValue("d"))
@@ -158,7 +158,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testEncodedAmp() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
@@ -170,7 +170,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testEncodedMetas() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
@@ -182,7 +182,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testAboutSchemeFindsQuery() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mayHaveKeys("really")
             .mustHaveKeys("really")
             .build(),
@@ -194,7 +194,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testEq() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mustHaveKeys("=")
             .valueMustMatch("=", hasValue("="))
             .build(),
@@ -206,7 +206,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testQmarkInValue() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b?c"))
             .build(),
@@ -219,7 +219,7 @@ public class QueryPredicateBuilderTest {
   @Test
   public void testSpaceInValue() throws Exception {
     runCommonTestsWith(
-        QueryPredicateBuilder.builder()
+        QueryClassifierBuilder.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b c"))
             .build(),

@@ -45,6 +45,7 @@ public final class Absolutizer {
   /** Evaluates a relative URL in the context of an absolute URL. */
   public Result absolutize(String originalUrlText) {
     int eos = endOfScheme(originalUrlText);
+    boolean pathSimplificationReachedRootsParent = false;
 
     Scheme scheme;
     PartRanges originalUrlRanges, absUrlRanges;
@@ -154,7 +155,7 @@ public final class Absolutizer {
       // Fixup . and ..
 //      System.err.println("absPathLeft=" + absPathLeft + ", partBuf=" + partBuf);
       if (absPathLeft >= 0) {
-        removeDotSegmentsInPlace(partBuf, absPathLeft);
+        pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(partBuf, absPathLeft);
         absPathRight = partBuf.length();
       }
 //      System.err.println("absPathRight=" + absPathRight + ", partBuf=" + partBuf);
@@ -228,7 +229,8 @@ public final class Absolutizer {
     }
 
     return new Result(
-        scheme, originalUrlText, originalUrlRanges, absUrlText, absUrlRanges);
+        scheme, originalUrlText, originalUrlRanges, absUrlText, absUrlRanges,
+        pathSimplificationReachedRootsParent);
   }
 
 
@@ -248,17 +250,20 @@ public final class Absolutizer {
     public final String absUrlText;
     /** */
     public final PartRanges absUrlRanges;
+    /** */
+    public final boolean pathSimplificationReachedRootsParent;
 
     /** */
     public Result(
         Scheme scheme, String originalUrlText,
-        PartRanges originalUrlRanges, String absUrlText, PartRanges absUrlRanges) {
-      super();
+        PartRanges originalUrlRanges, String absUrlText, PartRanges absUrlRanges,
+        boolean pathSimplificationReachedRootsParent) {
       this.scheme = scheme;
       this.originalUrlText = originalUrlText;
       this.originalUrlRanges = originalUrlRanges;
       this.absUrlText = absUrlText;
       this.absUrlRanges = absUrlRanges;
+      this.pathSimplificationReachedRootsParent = pathSimplificationReachedRootsParent;
     }
   }
 
@@ -277,13 +282,18 @@ public final class Absolutizer {
   }
 
   private static final boolean DEBUG_RDS = false;
-  static void removeDotSegmentsInPlace(StringBuilder path, int left) {
+  /**
+   * @return true iff a "prefix/" or "/prefix/" before path[:left]
+   *     would have been removed because of ".." handling were it present.
+   */
+  static boolean removeDotSegmentsInPlace(StringBuilder path, int left) {
     // The code below has excerpts from the spec interspersed.
     // The "input buffer" and "output buffer" referred to in the spec
     // are both just regions of path.
     // The loop deals with the exclusive cases by continuing instead
     // of proceeding to the bottom.
     boolean isAbsolute = left < path.length() && path.charAt(left) == '/';
+    boolean dotDotNavigatesPastRoot = false;
 
     // RFC 3986 Section 5.2.4
     // 1.  The input buffer is initialized with the now-appended path
@@ -354,6 +364,17 @@ public final class Absolutizer {
           foundDotDot = true;
         }
         if (foundDotDot) {
+          switch (outputBufferEnd - outputBufferStart) {
+            // !!Extra not found in spec!!
+            case 0:
+              dotDotNavigatesPastRoot = true;
+              break;
+            case 1:
+              if ('/' == path.charAt(outputBufferStart)) {
+                dotDotNavigatesPastRoot = true;
+              }
+              break;
+          }
           while (outputBufferEnd > outputBufferStart) {
             --outputBufferEnd;
             if (path.charAt(outputBufferEnd) == '/') { break; }
@@ -394,5 +415,7 @@ public final class Absolutizer {
     // 3.  Finally, the output buffer is returned as the result of
     //     remove_dot_segments.
     path.setLength(outputBufferEnd);
+
+    return dotDotNavigatesPastRoot;
   }
 }

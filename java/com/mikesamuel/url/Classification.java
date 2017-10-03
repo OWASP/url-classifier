@@ -1,12 +1,12 @@
 package com.mikesamuel.url;
 
 /**
- * A tri-state predicate result.
+ * A tri-state classifier result.
  */
 public enum Classification {
-  /** The URL input does not match the predicate. */
+  /** The URL input does not match the classifier. */
   NOT_A_MATCH,
-  /** The URL input does match the predicate. */
+  /** The URL input does match the classifier. */
   MATCH,
   /** THe URL input is structurally invalid. */
   INVALID,

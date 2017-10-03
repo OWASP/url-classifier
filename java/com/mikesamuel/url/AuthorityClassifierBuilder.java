@@ -24,36 +24,36 @@ import com.google.common.net.InetAddresses;
 import com.google.common.net.InternetDomainName;
 
 /**
- * Builds a predicate over username:password@hostname:port style authorities.
+ * Builds a classifier over username:password@hostname:port style authorities.
  */
-public final class AuthorityPredicateBuilder {
+public final class AuthorityClassifierBuilder {
   private final ImmutableSet.Builder<Inet4Address> ipv4s = ImmutableSet.builder();
   private final ImmutableSet.Builder<Inet6Address> ipv6s = ImmutableSet.builder();
   private final ImmutableSet.Builder<InternetDomainName> domainNames = ImmutableSet.builder();
   private final ImmutableSet.Builder<HostGlob> hostGlobs = ImmutableSet.builder();
   private boolean matchesAnyHost = false;
   private final ImmutableSet.Builder<Integer> allowedPorts = ImmutableSet.builder();
-  private Predicate<? super Integer> allowedPortPredicate = null;
-  private Predicate<? super CharSequence> allowedUnamePredicate = null;
+  private Predicate<? super Integer> allowedPortClassifier = null;
+  private Predicate<? super CharSequence> allowedUnameClassifier = null;
   // We intentionally do not allow matching against a password.
   // There is no way to match http://msamuel:hello-kitty@google.com/
   // via this API.  Also, get your own password.
 
-  private AuthorityPredicateBuilder() {
+  private AuthorityClassifierBuilder() {
     // Static factory.
   }
 
   /** A new blank builder. */
-  public static AuthorityPredicateBuilder builder() {
-    return new AuthorityPredicateBuilder();
+  public static AuthorityClassifierBuilder builder() {
+    return new AuthorityClassifierBuilder();
   }
 
   /**
-   * Builds a predicate based on previous allow/match decisions.
+   * Builds a classifier based on previous allow/match decisions.
    * This may be reused after a call to build and subsequent calls to
-   * allow/match methods will not affect previously built predicates.
+   * allow/match methods will not affect previously built classifiers.
    */
-  public AuthorityPredicate build() {
+  public AuthorityClassifier build() {
     ImmutableSet<Inet4Address> ipv4Set = ipv4s.build();
     ImmutableSet<Inet6Address> ipv6Set = ipv6s.build();
     ImmutableSet<InternetDomainName> domainNameSet = domainNames.build();
@@ -69,26 +69,26 @@ public final class AuthorityPredicateBuilder {
       }
       Arrays.sort(allowedPortsSorted);
     }
-    Predicate<? super Integer> portPredicate =
+    Predicate<? super Integer> portClassifier =
         allowedPortsSorted.length == 0  // No exclusion specified
         ? Predicates.alwaysTrue()
         : Predicates.alwaysFalse();
-    if (this.allowedPortPredicate != null) {
-      portPredicate = this.allowedPortPredicate;
+    if (this.allowedPortClassifier != null) {
+      portClassifier = this.allowedPortClassifier;
     }
-    Predicate<? super CharSequence> unamePredicate = Predicates.alwaysTrue();
-    if (this.allowedUnamePredicate != null) {
-      unamePredicate = this.allowedUnamePredicate;
+    Predicate<? super CharSequence> unameClassifier = Predicates.alwaysTrue();
+    if (this.allowedUnameClassifier != null) {
+      unameClassifier = this.allowedUnameClassifier;
     }
-    return new AuthorityPredicateImpl(
+    return new AuthorityClassifierImpl(
         ipv4Set,
         ipv6Set,
         domainNameSet,
         hostGlobMatcher,
         matchesAnyHost,
         allowedPortsSorted,
-        portPredicate,
-        unamePredicate);
+        portClassifier,
+        unameClassifier);
   }
 
   /** Returns a canonical domain name.  The canonical domain name is UNICODE with punycode. */
@@ -101,7 +101,7 @@ public final class AuthorityPredicateBuilder {
    * Accepts hostnames or numeric IPAs.
    * IPv6 addresses should be in square brackets.
    */
-  public AuthorityPredicateBuilder matchesHosts(String... hosts) {
+  public AuthorityClassifierBuilder matchesHosts(String... hosts) {
     for (String host : hosts) {
       int len = host.length();
       Preconditions.checkArgument(len > 0, "Empty string passed as hostname");
@@ -119,22 +119,22 @@ public final class AuthorityPredicateBuilder {
     return this;
   }
   /** @see #matchesHosts(String...) */
-  public AuthorityPredicateBuilder matchesHosts(InternetDomainName... addresses) {
+  public AuthorityClassifierBuilder matchesHosts(InternetDomainName... addresses) {
     domainNames.addAll(Arrays.asList(addresses));
     return this;
   }
   /** @see #matchesHosts(String...) */
-  public AuthorityPredicateBuilder matchesHosts(Inet4Address... addresses) {
+  public AuthorityClassifierBuilder matchesHosts(Inet4Address... addresses) {
     ipv4s.addAll(Arrays.asList(addresses));
     return this;
   }
   /** @see #matchesHosts(String...) */
-  public AuthorityPredicateBuilder matchesHosts(Inet6Address... addresses) {
+  public AuthorityClassifierBuilder matchesHosts(Inet6Address... addresses) {
     ipv6s.addAll(Arrays.asList(addresses));
     return this;
   }
   /** @see #matchesHostGlob(Iterable) */
-  public AuthorityPredicateBuilder matchesHostGlob(String... globs) {
+  public AuthorityClassifierBuilder matchesHostGlob(String... globs) {
     return matchesHostGlob(Arrays.asList(globs));
   }
   /**
@@ -153,7 +153,7 @@ public final class AuthorityPredicateBuilder {
    * One of "**." and "*." may appear at the beginning and ".*" may appear at the end
    * but otherwise, "*" may not appear in a hostname glob.
    */
-  public AuthorityPredicateBuilder matchesHostGlob(
+  public AuthorityClassifierBuilder matchesHostGlob(
       Iterable<? extends String> globs) {
     for (String glob : globs) {
       // Treat as a proper hostname.
@@ -174,19 +174,19 @@ public final class AuthorityPredicateBuilder {
    * but not https://example.com/ and https://example.com:80/ but not
    * https://example.com:10000/
    */
-  public AuthorityPredicateBuilder matchesPort(
+  public AuthorityClassifierBuilder matchesPort(
       Predicate<? super Integer> portIsAllowed) {
     Preconditions.checkNotNull(portIsAllowed);
-    if (allowedPortPredicate == null) {
-      allowedPortPredicate = portIsAllowed;
+    if (allowedPortClassifier == null) {
+      allowedPortClassifier = portIsAllowed;
     } else if (portIsAllowed != Predicates.alwaysFalse()) {  // x || false -> x
-      allowedPortPredicate = Predicates.or(
-          allowedPortPredicate, portIsAllowed);
+      allowedPortClassifier = Predicates.or(
+          allowedPortClassifier, portIsAllowed);
     }
     return this;
   }
   /** @see #matchesPort(Predicate) */
-  public AuthorityPredicateBuilder matchesPort(int... ports) {
+  public AuthorityClassifierBuilder matchesPort(int... ports) {
     for (int port : ports) {
       allowedPorts.add(port);
     }
@@ -194,24 +194,24 @@ public final class AuthorityPredicateBuilder {
   }
 
   /**
-   * Unless an authentication part predicate is specified no
-   * URL with an authentication part will match, so
+   * Unless a userinfo classifier is specified no
+   * URL with userinfo will match, so
    * http://@example.com/ will not match.
    */
-  public AuthorityPredicateBuilder matchesUserName(
+  public AuthorityClassifierBuilder matchesUserName(
       Predicate<? super CharSequence> unameIsAllowed) {
     Preconditions.checkNotNull(unameIsAllowed);
-    if (this.allowedUnamePredicate == null) {
-      allowedUnamePredicate = unameIsAllowed;
+    if (this.allowedUnameClassifier == null) {
+      allowedUnameClassifier = unameIsAllowed;
     } else if (unameIsAllowed != Predicates.alwaysFalse()) {  // x || false -> x
-      allowedUnamePredicate = Predicates.or(
-          allowedUnamePredicate, unameIsAllowed);
+      allowedUnameClassifier = Predicates.or(
+          allowedUnameClassifier, unameIsAllowed);
     }
     return this;
   }
 }
 
-final class AuthorityPredicateImpl implements AuthorityPredicate {
+final class AuthorityClassifierImpl implements AuthorityClassifier {
 
   private final ImmutableSet<Inet4Address> ipv4Set;
   private final ImmutableSet<Inet6Address> ipv6Set;
@@ -219,24 +219,24 @@ final class AuthorityPredicateImpl implements AuthorityPredicate {
   private final HostGlobMatcher hostGlobMatcher;
   private final boolean matchesAnyHost;
   private final int[] allowedPortsSorted;
-  private final Predicate<? super Integer> portPredicate;
-  private final Predicate<? super CharSequence> unamePredicate;
+  private final Predicate<? super Integer> portClassifier;
+  private final Predicate<? super CharSequence> unameClassifier;
 
   private static final boolean EXPLAIN_INVALID = false;
 
-  public AuthorityPredicateImpl(
+  public AuthorityClassifierImpl(
       ImmutableSet<Inet4Address> ipv4Set, ImmutableSet<Inet6Address> ipv6Set,
       ImmutableSet<InternetDomainName> canonHostnameSet, HostGlobMatcher hostGlobMatcher,
-      boolean matchesAnyHost, int[] allowedPortsSorted, Predicate<? super Integer> portPredicate,
-      Predicate<? super CharSequence> unamePredicate) {
+      boolean matchesAnyHost, int[] allowedPortsSorted, Predicate<? super Integer> portClassifier,
+      Predicate<? super CharSequence> unameClassifier) {
     this.ipv4Set = ipv4Set;
     this.ipv6Set = ipv6Set;
     this.domainNameSet = canonHostnameSet;
     this.hostGlobMatcher = hostGlobMatcher;
     this.matchesAnyHost = matchesAnyHost;
     this.allowedPortsSorted = allowedPortsSorted;
-    this.portPredicate = portPredicate;
-    this.unamePredicate = unamePredicate;
+    this.portClassifier = portClassifier;
+    this.unameClassifier = unameClassifier;
   }
 
   @Override
@@ -259,7 +259,7 @@ final class AuthorityPredicateImpl implements AuthorityPredicate {
     if (at >= 0) {
       if (colon >= 0 && colon < at) {
         // There's a password.
-        // We don't encourage password matching in URL predicates.
+        // We don't encourage password matching in URL classifiers.
         // Don't put passwords in URLs.
         // Tell your friends.
         if (EXPLAIN_INVALID) { System.err.println("password"); }
@@ -287,7 +287,7 @@ final class AuthorityPredicateImpl implements AuthorityPredicate {
       result = Classification.NOT_A_MATCH;
     }
 
-    if (result == Classification.MATCH && !this.unamePredicate.apply(uname)) {
+    if (result == Classification.MATCH && !this.unameClassifier.apply(uname)) {
       result = Classification.NOT_A_MATCH;
     }
 
@@ -346,7 +346,7 @@ final class AuthorityPredicateImpl implements AuthorityPredicate {
       port = x.scheme.defaultPortOrNegOne;
     }
     if (port != -1 && result == Classification.MATCH) {
-      if (!this.portPredicate.apply(port)) {
+      if (!this.portClassifier.apply(port)) {
         int pos = Arrays.binarySearch(this.allowedPortsSorted, port);
         if (pos < 0) {
           result = Classification.NOT_A_MATCH;
@@ -374,7 +374,7 @@ final class AuthorityPredicateImpl implements AuthorityPredicate {
           }
           return Classification.INVALID;
         }
-        hostValue = AuthorityPredicateBuilder
+        hostValue = AuthorityClassifierBuilder
             .toDomainName(decodedHostOpt.get());
       }
     } catch (@SuppressWarnings("unused") IllegalArgumentException e) {
