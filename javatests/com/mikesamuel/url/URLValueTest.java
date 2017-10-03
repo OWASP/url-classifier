@@ -30,5 +30,57 @@ public final class URLValueTest {
     assertFalse(URLValue.of("https://" + PH + ":443/foo/").inheritsPlaceholderAuthority);
   }
 
-
+  @Test
+  public void testPastFileRoot() {
+    URLValue f = URLValue.of("file:..");
+    assertTrue(f.pathSimplificationReachedRootsParent);
+    // Path simplification does not reach root parent.
+    for (String url :
+         new String[] {
+             "",
+             "/",
+             "foo/./bar",
+             "foo/../bar",
+             "foo/..",
+             "foo/../",
+             "f/..",
+             "./foo/bar",
+             ".",
+             "http://foo.com/",
+             "http://foo.com/.",
+             "about:../../..",
+             "mailto:../@foo.com",
+             "javascript:/../.test(/../)",
+             "foo/bar/baz/../../boo/../..",
+             "foo/./bar/./baz/../../boo/../../",
+         }) {
+      URLValue v = URLValue.of(url);
+      assertFalse(url, v.pathSimplificationReachedRootsParent);
+    }
+    // Path simplification does reach root parent
+    for (String url :
+         new String[] {
+             "..",
+             "../",
+             "./..",
+             "../.",
+             "./../",
+             ".././",
+             "../..",
+             "/..",
+             "/../",
+             "/./..",
+             "/../.",
+             "file:..",
+             "file:/..",
+             "foo/bar/baz/../../boo/../../..",
+             "foo/./bar/./baz/../../boo/../../..",
+             "file:///..",
+             "http://foo.com/../",
+             "http://foo.com/bar/../baz/../..",
+         }) {
+      URLValue v = URLValue.of(url);
+      assertTrue(url, v.pathSimplificationReachedRootsParent);
+    }
+  }
 }

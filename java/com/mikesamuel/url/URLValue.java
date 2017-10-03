@@ -38,9 +38,10 @@ public final class URLValue {
   /** The full text of the URL after resolving against the context's base URL. */
   public final String urlText;
 
-  private final int endOfScheme;
   /** The scheme of the URL or {@link Scheme#UNKNOWN} if not known. */
   public final Scheme scheme;
+  /** The position of part boundaries within {@link #urlText}. */
+  public final Scheme.PartRanges ranges;
 
   /**
    * @param context a context used to flesh out relative URLs.
@@ -63,52 +64,26 @@ public final class URLValue {
     this.context = context;
     this.originalUrlText = originalUrlText;
 
-    int eos = Absolutizer.endOfScheme(originalUrlText);
-    if (eos >= 0) {
-      this.urlText = originalUrlText;
-      this.endOfScheme = eos;
-      this.scheme = context.absolutizer.schemes.schemeForName(
-          urlText.substring(0, eos - 1 /* ':' */));
-      this.inheritsPlaceholderAuthority = false;
-      // Don't bother computing part ranges for a URL
-      // that may fail the scheme filter.
-      this.pathSimplificationReachedRootsParent = false;  // TODO: is this legit
-    } else {
-      Absolutizer.Result abs = context.absolutizer.absolutize(originalUrlText);
-      this.scheme  = abs.scheme;
-      this.urlText = abs.absUrlText;
-      this.ranges = abs.absUrlRanges;
-      this.pathSimplificationReachedRootsParent = abs.pathSimplificationReachedRootsParent;
-      this.computedRanges = true;
-      this.endOfScheme = Absolutizer.endOfScheme(this.urlText);
-      final int phLen = URLContext.PLACEHOLDER_AUTHORITY.length();
-      this.inheritsPlaceholderAuthority = this.ranges != null
-          && abs.originalUrlRanges.authorityLeft < 0
-          && this.ranges.authorityLeft >= 0
-          && this.ranges.authorityRight - this.ranges.authorityLeft == phLen
-          && URLContext.PLACEHOLDER_AUTHORITY.regionMatches(
-              0, this.urlText, abs.absUrlRanges.authorityLeft, phLen);
-    }
-  }
-
-  private boolean computedRanges;
-  private Scheme.PartRanges ranges;
-  /** The position of part boundaries within {@link #urlText}. */
-  public Scheme.PartRanges getRanges() {
-    if (!computedRanges) {
-      ranges = scheme.decompose(
-          context.absolutizer.schemes, urlText, endOfScheme, urlText.length());
-    }
-    return ranges;
+    Absolutizer.Result abs = context.absolutizer.absolutize(originalUrlText);
+    this.scheme  = abs.scheme;
+    this.urlText = abs.absUrlText;
+    this.ranges = abs.absUrlRanges;
+    this.pathSimplificationReachedRootsParent = abs.pathSimplificationReachedRootsParent;
+    final int phLen = URLContext.PLACEHOLDER_AUTHORITY.length();
+    this.inheritsPlaceholderAuthority = this.ranges != null
+        && abs.originalUrlRanges.authorityLeft < 0
+        && this.ranges.authorityLeft >= 0
+        && this.ranges.authorityRight - this.ranges.authorityLeft == phLen
+        && URLContext.PLACEHOLDER_AUTHORITY.regionMatches(
+            0, this.urlText, abs.absUrlRanges.authorityLeft, phLen);
   }
 
   private String authority;
   /** The authority or null if none is available. */
   public String getAuthority() {
     if (authority == null) {
-      Scheme.PartRanges r = getRanges();
-      if (r != null && r.authorityLeft >= 0) {
-        authority = urlText.substring(r.authorityLeft, r.authorityRight);
+      if (ranges != null && ranges.authorityLeft >= 0) {
+        authority = urlText.substring(ranges.authorityLeft, ranges.authorityRight);
       }
     }
     return authority;
@@ -118,9 +93,8 @@ public final class URLValue {
   /** The path or null if none is available. */
   public String getPath() {
     if (path == null) {
-      Scheme.PartRanges r = getRanges();
-      if (r != null && r.pathLeft >= 0) {
-        path = urlText.substring(r.pathLeft, r.pathRight);
+      if (ranges != null && ranges.pathLeft >= 0) {
+        path = urlText.substring(ranges.pathLeft, ranges.pathRight);
       }
     }
     return path;
@@ -133,9 +107,8 @@ public final class URLValue {
    */
   public String getQuery() {
     if (query == null) {
-      Scheme.PartRanges r = getRanges();
-      if (r != null && r.queryLeft >= 0) {
-        query = urlText.substring(r.queryLeft, r.queryRight);
+      if (ranges != null && ranges.queryLeft >= 0) {
+        query = urlText.substring(ranges.queryLeft, ranges.queryRight);
       }
     }
     return query;
@@ -148,9 +121,8 @@ public final class URLValue {
    */
   public String getFragment() {
     if (fragment == null) {
-      Scheme.PartRanges r = getRanges();
-      if (r != null && r.fragmentLeft >= 0) {
-        fragment = urlText.substring(r.fragmentLeft, r.fragmentRight);
+      if (ranges != null && ranges.fragmentLeft >= 0) {
+        fragment = urlText.substring(ranges.fragmentLeft, ranges.fragmentRight);
       }
     }
     return fragment;

@@ -58,9 +58,10 @@ public final class Absolutizer {
       absUrlText = originalUrlText;
       absUrlRanges = originalUrlRanges;
       if (scheme.isHierarchical && originalUrlRanges.pathRight >= 0) {
-        StringBuilder sb = new StringBuilder(absUrlText.length());
+        StringBuilder sb = new StringBuilder(originalUrlText.length());
         sb.append(originalUrlText, 0, originalUrlRanges.pathRight);
-        removeDotSegmentsInPlace(sb, originalUrlRanges.pathLeft);
+        pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(
+            sb, originalUrlRanges.pathLeft);
         if (sb.length() != originalUrlRanges.pathRight) {
           // Path normalization did some work.
           sb.append(originalUrlText, originalUrlRanges.pathRight, originalUrlText.length());
@@ -326,6 +327,7 @@ public final class Absolutizer {
           if ('.' == c1 && inputBufferStart + 2 < inputBufferEnd
               && '/' == path.charAt(inputBufferStart + 2)) {
             inputBufferStart += 3;
+            dotDotNavigatesPastRoot = true;
             continue;
           }
         }
@@ -398,6 +400,7 @@ public final class Absolutizer {
         } else if (inputBufferStart + 2 == inputBufferEnd
                    && '.' == path.charAt(inputBufferStart + 1)) {
           inputBufferStart += 2;
+          dotDotNavigatesPastRoot = true;
           continue;
         }
       }
