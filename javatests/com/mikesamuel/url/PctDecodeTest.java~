@@ -1,0 +1,89 @@
+package com.mikesamuel.url;
+
+import static org.junit.Assert.*;
+
+import java.net.URLEncoder;
+
+import org.junit.Test;
+
+import com.google.common.base.Optional;
+
+@SuppressWarnings({ "javadoc", "static-method" })
+public final class PctDecodeTest {
+
+  @Test
+  public void testSimpleExample() {
+    assertEquals(Optional.of("Fran\u00e7ois"), PctDecode.of("Fran%c3%a7ois"));
+    assertEquals(Optional.of("Fran\u00e7ois"), PctDecode.of("Fran%C3%A7ois"));
+  }
+
+  @Test
+  public void testSingleCodepoints() throws Exception {
+    for (int i = 0; i < 0x11000; ++i) {
+      // skip
+      if (i == ' ' || i == '+') {
+        // Skip those ambiguous between %-encoding of form-encoded content
+        // and other %-encoded content.
+        continue;
+      }
+      if (i == 0xD800) {
+        // skip surrogates
+        i = 0xDFFF;
+        continue;
+      }
+      String inp = new StringBuilder().appendCodePoint(i).toString();
+      String enc = URLEncoder.encode(inp, "UTF-8");
+      assertEquals(
+          "U+" + Integer.toHexString(i),
+          Optional.of(inp), PctDecode.of(enc));
+    }
+  }
+
+  private static void assertSpaceDelim(String want, String hexpairs) {
+    assertEquals(
+        Optional.fromNullable(want),
+        PctDecode.of(hexpairs.replace(' ', '%')));
+  }
+
+
+  @Test
+  public void testMarkusKuhnsAbilityToBreakMyCode() {
+    // Courtesy http://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
+    assertSpaceDelim(
+        "κόσμε",
+        " ce ba e1 bd b9 cf 83 ce bc ce b5");
+    // 2.1
+    assertSoaceDelim("\u0000", " 00");
+    assertSpaceDelim("\u0080", " c2 80");
+    assertEquals(
+        Optional.of("\u0800"),
+        decSpaceToPct(" e0 a0 80"));
+    assertEquals(
+        Optional.of(new StringBuilder().appendCodePoint(0x10000).toString()),
+        decSpaceToPct(" f0 90 80 80"));
+    assertEquals(
+        Optional.absent(),
+        decSpaceToPct(" f8 88 80 80 80"));
+    assertEquals(
+        Optional.absent(),
+        decSpaceToPct(" fc 84 80 80 80 80"));
+    // 2.2
+    assertEquals(
+        Optional.of(""),
+  }
+
+  @Test
+  public void testOrphanedSurrogates() throws Exception {
+
+  }
+
+  @Test
+  public void testNonMinimalEncoding() throws Exception {
+
+  }
+
+  @Test
+  public void testBoundaryConditions() throws Exception {
+
+  }
+}
