@@ -52,7 +52,6 @@ public final class BuiltinScheme {
             String schemeName = schemeSpecificPart.substring(originLeft, i);
             Scheme originScheme = schemes.schemeForName(schemeName);
             if (originScheme == Scheme.UNKNOWN) { return null; }
-            // TODO: does decompose need to get the SchemeLookupTable?
             PartRanges originRanges = originScheme.decompose(
                 schemes, schemeSpecificPart, i + 1, originRight);
             if (originRanges == null) { return null; }
