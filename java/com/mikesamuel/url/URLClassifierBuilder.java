@@ -8,6 +8,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 /**
  * Specifying multiple sub-classifiers of the same kind ORs those
@@ -90,6 +91,8 @@ public final class URLClassifierBuilder {
     if (this.matchesNULs) {
       flags.add(URLClassifierImpl.GlobalFlag.ALLOW_NULS);
     }
+    ImmutableSet<URLValue.URLSpecCornerCase> toleratedCornerCaseSet =
+        Sets.immutableEnumSet(this.toleratedCornerCases);
     ImmutableSet<Scheme> allowedSchemeSet = allowedSchemes.build();
     MediaTypeClassifier mtc = mediaTypeClassifier != null
         ? mediaTypeClassifier
@@ -117,6 +120,7 @@ public final class URLClassifierBuilder {
 
     return new URLClassifierImpl(
         flags,
+        toleratedCornerCaseSet,
         allowedSchemeSet,
         mtc,
         ac,
@@ -167,6 +171,8 @@ public final class URLClassifierBuilder {
   //// Flags that affect multiple sub-classifiers.
   private boolean matchesNULs = false;
   private boolean allowPathsThatReachRootsParent = false;
+  private final EnumSet<URLValue.URLSpecCornerCase> toleratedCornerCases =
+      EnumSet.noneOf(URLValue.URLSpecCornerCase.class);  // TODO: adder
 
   /**
    * URLs with NULs are a common problem case.
@@ -377,6 +383,7 @@ public final class URLClassifierBuilder {
 final class URLClassifierImpl implements URLClassifier {
   final boolean matchesNULs;
   final boolean allowPathsThatReachRootsParent;
+  final ImmutableSet<URLValue.URLSpecCornerCase> toleratedCornerCaseSet;
   final ImmutableSet<Scheme> allowedSchemeSet;
   final MediaTypeClassifier mediaTypeClassifier;
   final AuthorityClassifier authorityClassifier;
@@ -388,6 +395,7 @@ final class URLClassifierImpl implements URLClassifier {
 
   public URLClassifierImpl(
       EnumSet<GlobalFlag> flags,
+      ImmutableSet<URLValue.URLSpecCornerCase> toleratedCornerCaseSet,
       ImmutableSet<Scheme> allowedSchemeSet,
       MediaTypeClassifier mediaTypeClassifier,
       AuthorityClassifier authorityClassifier,
@@ -399,6 +407,7 @@ final class URLClassifierImpl implements URLClassifier {
     this.matchesNULs = flags.contains(GlobalFlag.ALLOW_NULS);
     this.allowPathsThatReachRootsParent = flags.contains(
         GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
+    this.toleratedCornerCaseSet = toleratedCornerCaseSet;
     this.allowedSchemeSet = allowedSchemeSet;
     this.mediaTypeClassifier = mediaTypeClassifier;
     this.authorityClassifier = authorityClassifier;
@@ -416,6 +425,9 @@ final class URLClassifierImpl implements URLClassifier {
 
   @Override
   public Classification apply(URLValue x) {
+    if (!this.toleratedCornerCaseSet.containsAll(x.cornerCases)) {
+      return Classification.INVALID;
+    }
     if (!matchesNULs && x.originalUrlText.indexOf('\0') >= 0) {
       return Classification.NOT_A_MATCH;
     }

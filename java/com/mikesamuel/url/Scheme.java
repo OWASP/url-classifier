@@ -96,7 +96,7 @@ public class Scheme {
     public final int contentMetadataRight;
 
     /** */
-    public PartRanges(
+    private PartRanges(
         int authorityLeft, int authorityRight,
         int pathLeft, int pathRight,
         int queryLeft, int queryRight,
@@ -153,6 +153,102 @@ public class Scheme {
       }
       return sb.append(')').toString();
     }
+
+    /** Builder for {@link Scheme.PartRanges}. */
+    public static final class Builder {
+      private int authorityLeft = -1;
+      private int authorityRight = -1;
+      private int pathLeft = -1;
+      private int pathRight = -1;
+      private int queryLeft = -1;
+      private int queryRight = -1;
+      private int fragmentLeft = -1;
+      private int fragmentRight = -1;
+      private int contentLeft = -1;
+      private int contentRight = -1;
+      private int contentMetadataLeft = -1;
+      private int contentMetadataRight = -1;
+
+      /** All ranges empty. */
+      public Builder() {
+      }
+
+      /** All ranges empty. */
+      public Builder(PartRanges pr) {
+        this.authorityLeft = pr.authorityLeft;
+        this.authorityRight = pr.authorityRight;
+        this.pathLeft = pr.pathLeft;
+        this.pathRight = pr.pathRight;
+        this.queryLeft = pr.queryLeft;
+        this.queryRight = pr.queryRight;
+        this.fragmentLeft = pr.fragmentLeft;
+        this.fragmentRight = pr.fragmentRight;
+        this.contentLeft = pr.contentLeft;
+        this.contentRight = pr.contentRight;
+        this.contentMetadataLeft = pr.contentMetadataLeft;
+        this.contentMetadataRight = pr.contentMetadataRight;
+      }
+
+      /** Produces an instance based on previous with calls. */
+      @SuppressWarnings("synthetic-access")
+      public PartRanges build() {
+        return new PartRanges(
+            authorityLeft, authorityRight,
+            pathLeft, pathRight,
+            queryLeft, queryRight,
+            fragmentLeft, fragmentRight,
+            contentLeft, contentRight,
+            contentMetadataLeft, contentMetadataRight);
+      }
+
+      /** Sets the authority range. */
+      public Builder withAuthority(int left, int right) {
+        Preconditions.checkArgument(left <= right);
+        this.authorityLeft = left;
+        this.authorityRight = right;
+        return this;
+      }
+
+      /** Sets the path range. */
+      public Builder withPath(int left, int right) {
+        Preconditions.checkArgument(left <= right);
+        this.pathLeft = left;
+        this.pathRight = right;
+        return this;
+      }
+
+      /** Sets the query range. */
+      public Builder withQuery(int left, int right) {
+        Preconditions.checkArgument(left <= right);
+        this.queryLeft = left;
+        this.queryRight = right;
+        return this;
+      }
+
+      /** Sets the fragment range. */
+      public Builder withFragment(int left, int right) {
+        Preconditions.checkArgument(left <= right);
+        this.fragmentLeft = left;
+        this.fragmentRight = right;
+        return this;
+      }
+
+      /** Sets the contentMetadata range. */
+      public Builder withContentMetadata(int left, int right) {
+        Preconditions.checkArgument(left <= right);
+        this.contentMetadataLeft = left;
+        this.contentMetadataRight = right;
+        return this;
+      }
+
+      /** Sets the content range. */
+      public Builder withContent(int left, int right) {
+        Preconditions.checkArgument(left <= right);
+        this.contentLeft = left;
+        this.contentRight = right;
+        return this;
+      }
+    }
   }
 
 
@@ -164,12 +260,7 @@ public class Scheme {
   public PartRanges decompose(
       SchemeLookupTable schemes,
       String schemeSpecificPart, int left, int right) {
-    int authorityLeft = -1, authorityRight = -1;
-    int pathLeft = -1, pathRight = -1;
-    int queryLeft = -1, queryRight = -1;
-    int fragmentLeft = -1, fragmentRight = -1;
-    int contentLeft = -1, contentRight = -1;
-    int contentMetadataLeft = -1, contentMetadataRight = -1;
+    PartRanges.Builder b = new PartRanges.Builder();
 
     if (isHierarchical) {
       int cursor = left;
@@ -177,7 +268,7 @@ public class Scheme {
           && schemeSpecificPart.charAt(cursor) == '/'
           && schemeSpecificPart.charAt(cursor + 1) == '/') {
         cursor += 2;
-        authorityLeft = cursor;
+        int authorityLeft = cursor;
 
         for (; cursor < right; ++cursor) {
           char ch = schemeSpecificPart.charAt(cursor);
@@ -185,33 +276,32 @@ public class Scheme {
             break;
           }
         }
-        authorityRight = cursor;
+        b.withAuthority(authorityLeft, cursor);
       }
 
-      pathLeft = cursor;
+      int pathLeft = cursor;
       for (; cursor < right; ++cursor) {
         char ch = schemeSpecificPart.charAt(cursor);
         if (ch == '?' || ch == '#') {
           break;
         }
       }
-      pathRight = cursor;
+      b.withPath(pathLeft, cursor);
 
       if (cursor < right && schemeSpecificPart.charAt(cursor) == '?') {
-        queryLeft = cursor;
+        int queryLeft = cursor;
         for (; cursor < right; ++cursor) {
           char ch = schemeSpecificPart.charAt(cursor);
           if (ch == '#') {
             break;
           }
         }
-        queryRight = cursor;
+        b.withQuery(queryLeft, cursor);
       }
 
       if (cursor < right) {
         Preconditions.checkState(schemeSpecificPart.charAt(cursor) == '#');
-        fragmentLeft = cursor;
-        fragmentRight = cursor = right;
+        b.withFragment(cursor, right);
       }
     } else {
       int hash = -1;
@@ -221,20 +311,12 @@ public class Scheme {
           break;
         }
       }
-      contentLeft = left;
-      contentRight = hash >= 0 ? hash : right;
+      b.withContent(left, hash >= 0 ? hash : right);
       if (hash >= 0) {
-        fragmentLeft = hash;
-        fragmentRight = right;
+        b.withFragment(hash, right);
       }
     }
-    return new PartRanges(
-        authorityLeft, authorityRight,
-        pathLeft, pathRight,
-        queryLeft, queryRight,
-        fragmentLeft, fragmentRight,
-        contentLeft, contentRight,
-        contentMetadataLeft, contentMetadataRight);
+    return b.build();
   }
 
   /** Appends a scheme specific part onto out using the ranges into source. */

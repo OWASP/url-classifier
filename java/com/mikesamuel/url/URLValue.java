@@ -5,6 +5,7 @@ import java.util.regex.Pattern;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.net.MediaType;
@@ -14,13 +15,63 @@ import com.google.common.net.MediaType;
  */
 public final class URLValue {
 
+  /**
+   * A known oddity in the URL spec (STD 66/RFC 3986) that would
+   * probably not be there if it could be redrafted without concern
+   * for backwards compatibility or spec complexity.
+   * <p>
+   * If we rely on other URL consumers interpreting the
+   * {@link URLValue#originalUrlText original URL text} according to spec,
+   * (instead of using {@link URLValue#urlText} which is tweaked to avoid
+   * corner cases) then those consumers might behave in different/unintended
+   * ways.
+   * <p>
+   * Additionally, different URL consumers come to different conclusions
+   * about what the spec says in some cases.
+   */
+  public enum URLSpecCornerCase {
+    /**
+     * When the special path components ({@code .} and {@code ..}) are
+     * percent-encoded, different URL consumers behave in different ways.
+     * <p>
+     * The spec requires that encoded dots not be considered part of the
+     * special path components.
+     * <p>
+     * Still, {@code %2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd} is a hazard.
+     *
+     * @see <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1042347">Mozilla bug 1042347</a>
+     */
+    ENCODED_DOT_PATH_SEGMENST,
+    /**
+     * {@code file://bar} has authority "bar" but can be the result of
+     * resolving a path-relative URL {@code .//bar} against a context URL
+     * with no authority, {@code file:/}.
+     * <p>
+     * @see <a href="https://tools.ietf.org/html/rfc8089#appendix-E.3.1">
+     *     RFC 8089: E.3.1. &lt;file&gt; URI with Authority
+     * </a>
+     */
+    PATH_AUTHORITY_AMBIGUITY,
+    /**
+     * The <a href="https://tools.ietf.org/html/rfc3986#section-5.2.4"><i>remove_dot_segments</i></a>
+     * spec method simplifies "{@code .}" and "{@code ..}" path segments out of a merged path.
+     * Merging two relative paths can lead to an absolute path.
+     * For example, "{@code ../bar}" relative to "{@code file:foo/}" invokes
+     * {@code remove_dot_segments("foo/../baz')} which yields {@code "/bar"}.
+     */
+    RELATIVE_URL_MERGED_TO_ABSOLUTE,
+  }
+
   /** The context in which the URL is interpreted. */
   public final URLContext context;
   /** The original URL text. */
   public final String originalUrlText;
+
   /**
    * True if the authority component of the URL was not explicitly specified
    * in the original URL text and the authority is the placeholder authority.
+   *
+   * @see URLContext#PLACEHOLDER_AUTHORITY
    */
   public final boolean inheritsPlaceholderAuthority;
 
@@ -49,6 +100,11 @@ public final class URLValue {
   public final Scheme scheme;
   /** The position of part boundaries within {@link #urlText}. */
   public final Scheme.PartRanges ranges;
+  /**
+   * Corner cases that might cause {@link #originalUrlText} to be
+   * interpreted differently by different URL consumers.
+   */
+  public final ImmutableSet<URLSpecCornerCase> cornerCases;
 
   /**
    * @param context a context used to flesh out relative URLs.
@@ -83,6 +139,7 @@ public final class URLValue {
         && this.ranges.authorityRight - this.ranges.authorityLeft == phLen
         && URLContext.PLACEHOLDER_AUTHORITY.regionMatches(
             0, this.urlText, abs.absUrlRanges.authorityLeft, phLen);
+    this.cornerCases = abs.cornerCases;
   }
 
   private String authority;

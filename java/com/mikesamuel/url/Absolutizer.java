@@ -1,6 +1,10 @@
 package com.mikesamuel.url;
 
+import java.util.EnumSet;
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.mikesamuel.url.Scheme.PartRanges;
 
 /** Converts possibly relative URLs to absolute URLs. */
@@ -46,6 +50,8 @@ public final class Absolutizer {
   public Result absolutize(String originalUrlText) {
     int eos = endOfScheme(originalUrlText);
     boolean pathSimplificationReachedRootsParent = false;
+    EnumSet<URLValue.URLSpecCornerCase> cornerCases = EnumSet.noneOf(
+        URLValue.URLSpecCornerCase.class);
 
     Scheme scheme;
     PartRanges originalUrlRanges, absUrlRanges;
@@ -84,12 +90,7 @@ public final class Absolutizer {
 
       // Collect enough information to create a ranges object
       // so we can recompose the URL.
-      int absAuthLeft = -1, absAuthRight = -1;
-      int absPathLeft = -1, absPathRight = -1;
-      int absQueryLeft = -1, absQueryRight = -1;
-      int absFragmentLeft = -1, absFragmentRight = -1;
-      int absContentMetadataLeft = -1, absContentMetadataRight = -1;
-      int absContentLeft = -1, absContentRight = -1;
+      PartRanges.Builder abs = new PartRanges.Builder();
 
       // Collect parts on this buffer.
       StringBuilder partBuf = new StringBuilder(
@@ -102,21 +103,22 @@ public final class Absolutizer {
 
       if (ors.authorityLeft >= 0) {
         usedGivenUrlPart = true;
-        absAuthLeft = partBuf.length();
+        int absAuthLeft = partBuf.length();
         partBuf.append(
             originalUrlText, ors.authorityLeft, ors.authorityRight);
-        absAuthRight = partBuf.length();
+        abs.withAuthority(absAuthLeft, partBuf.length());
       } else if (crs.authorityLeft >= 0) {
-        absAuthLeft = partBuf.length();
+        int absAuthLeft = partBuf.length();
         partBuf.append(
             contextUrl, crs.authorityLeft, crs.authorityRight);
-        absAuthRight = partBuf.length();
+        abs.withAuthority(absAuthLeft, partBuf.length());
       }
 //      System.err.println("ors.pathLeft=" + ors.pathLeft);
 //      System.err.println("ors.pathRight=" + ors.pathRight);
 //      System.err.println("crs.pathLeft=" + crs.pathLeft);
 //      System.err.println("crs.pathRight=" + crs.pathRight);
 //      System.err.println("usedGivenUrlPart=" + usedGivenUrlPart);
+      int absPathLeft = -1;
       if (ors.pathLeft < ors.pathRight || usedGivenUrlPart) {
         absPathLeft = partBuf.length();
         if (ors.pathLeft >= 0) {
@@ -127,7 +129,7 @@ public final class Absolutizer {
           } else if (!usedGivenUrlPart) {
             // Relative path.
             // Append the context path.
-            if (crs.pathLeft >= 0) {
+            if (crs.pathLeft < crs.pathRight) {
               partBuf.append(contextUrl, crs.pathLeft, crs.pathRight);
               // Truncate at last '/'.
               // Absolutizing "foo" relative to "/bar/baz" is "/bar/foo"
@@ -143,6 +145,12 @@ public final class Absolutizer {
               if (!truncated) {
                 partBuf.setLength(absPathLeft);
               }
+            } else if (crs.authorityLeft >= 0) {
+              // https://tools.ietf.org/html/rfc3986#section-5.2.3 "Merge Paths" says
+              // > If the base URI has a defined authority component and an empty
+              // > path, then return a string consisting of "/" concatenated with the
+              // > reference's path.
+              partBuf.append('/');
             }
             // Append new path
             partBuf.append(originalUrlText, ors.pathLeft, ors.pathRight);
@@ -156,8 +164,11 @@ public final class Absolutizer {
       // Fixup . and ..
 //      System.err.println("absPathLeft=" + absPathLeft + ", partBuf=" + partBuf);
       if (absPathLeft >= 0) {
+        if (fixupEncodedDots(partBuf, absPathLeft)) {
+          cornerCases.add(URLValue.URLSpecCornerCase.ENCODED_DOT_PATH_SEGMENST);
+        }
         pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(partBuf, absPathLeft);
-        absPathRight = partBuf.length();
+        abs.withPath(absPathLeft, partBuf.length());
       }
 //      System.err.println("absPathRight=" + absPathRight + ", partBuf=" + partBuf);
 
@@ -166,62 +177,55 @@ public final class Absolutizer {
           || usedGivenUrlPart) {
         usedGivenUrlPart = true;
         if (ors.contentMetadataLeft >= 0) {
-          absContentMetadataLeft = partBuf.length();
+          int absContentMetadataLeft = partBuf.length();
           partBuf.append(
               originalUrlText,
               ors.contentMetadataLeft, ors.contentMetadataRight);
-          absContentMetadataRight = partBuf.length();
+          abs.withContentMetadata(absContentMetadataLeft, partBuf.length());
         }
         if (ors.contentLeft >= 0) {
-          absContentLeft = partBuf.length();
+          int absContentLeft = partBuf.length();
           partBuf.append(originalUrlText, ors.contentLeft, ors.contentRight);
-          absContentRight = partBuf.length();
+          abs.withContent(absContentLeft, partBuf.length());
         }
       } else if (
           (crs.contentLeft >= 0 || crs.contentMetadataLeft >= 0)
           && !usedGivenUrlPart) {
         if (crs.contentMetadataLeft >= 0) {
-          absContentMetadataLeft = partBuf.length();
+          int absContentMetadataLeft = partBuf.length();
           partBuf.append(
               contextUrl, crs.contentMetadataLeft, crs.contentMetadataRight);
-          absContentMetadataRight = partBuf.length();
+          abs.withContentMetadata(absContentMetadataLeft, partBuf.length());
         }
         if (crs.contentLeft >= 0) {
-          absContentLeft = partBuf.length();
+          int absContentLeft = partBuf.length();
           partBuf.append(contextUrl, crs.contentLeft, crs.contentRight);
-          absContentRight = partBuf.length();
+          abs.withContent(absContentLeft, partBuf.length());
         }
       }
 
       if (ors.queryLeft >= 0) {
         usedGivenUrlPart = true;
-        absQueryLeft = partBuf.length();
+        int absQueryLeft = partBuf.length();
         partBuf.append(originalUrlText, ors.queryLeft, ors.queryRight);
-        absQueryRight = partBuf.length();
+        abs.withQuery(absQueryLeft, partBuf.length());
       } else if (!usedGivenUrlPart && crs.queryLeft >= 0) {
-        absQueryLeft = partBuf.length();
+        int absQueryLeft = partBuf.length();
         partBuf.append(contextUrl, crs.queryLeft, crs.queryRight);
-        absQueryRight = partBuf.length();
+        abs.withQuery(absQueryLeft, partBuf.length());
       }
 
       if (ors.fragmentLeft >= 0) {
-        absFragmentLeft = partBuf.length();
+        int absFragmentLeft = partBuf.length();
         partBuf.append(originalUrlText, ors.fragmentLeft, ors.fragmentRight);
-        absFragmentRight = partBuf.length();
+        abs.withFragment(absFragmentLeft, partBuf.length());
       }
       // Do not inherit fragment from context URL.
 
       // Seed the buffer with the scheme.
       StringBuilder recomposed = new StringBuilder(partBuf.capacity());
       recomposed.append(contextUrl, 0, contextEos);
-      PartRanges ranges = new PartRanges(
-          absAuthLeft, absAuthRight,
-          absPathLeft, absPathRight,
-          absQueryLeft, absQueryRight,
-          absFragmentLeft, absFragmentRight,
-          absContentLeft, absContentRight,
-          absContentMetadataLeft, absContentMetadataRight
-          );
+      PartRanges ranges = abs.build();
       contextScheme.recompose(partBuf, ranges, recomposed);
       absUrlText = recomposed.toString();
 //    System.err.println("RECOMPOSED\n\tranges=" + ranges + "\n\tsource=" + partBuf + "\n\tresult=" + absUrlText);
@@ -231,7 +235,7 @@ public final class Absolutizer {
 
     return new Result(
         scheme, originalUrlText, originalUrlRanges, absUrlText, absUrlRanges,
-        pathSimplificationReachedRootsParent);
+        pathSimplificationReachedRootsParent, cornerCases);
   }
 
 
@@ -240,7 +244,7 @@ public final class Absolutizer {
    * The result of absolutizing a URL along with structural information
    * found about the input and the output.
    */
-  public static final class Result {
+  static final class Result {
     /** */
     public final Scheme scheme;
     /** */
@@ -254,17 +258,21 @@ public final class Absolutizer {
     /** */
     public final boolean pathSimplificationReachedRootsParent;
 
+    public final ImmutableSet<URLValue.URLSpecCornerCase> cornerCases;
+
     /** */
     public Result(
         Scheme scheme, String originalUrlText,
         PartRanges originalUrlRanges, String absUrlText, PartRanges absUrlRanges,
-        boolean pathSimplificationReachedRootsParent) {
+        boolean pathSimplificationReachedRootsParent,
+        EnumSet<URLValue.URLSpecCornerCase> cornerCases) {
       this.scheme = scheme;
       this.originalUrlText = originalUrlText;
       this.originalUrlRanges = originalUrlRanges;
       this.absUrlText = absUrlText;
       this.absUrlRanges = absUrlRanges;
       this.pathSimplificationReachedRootsParent = pathSimplificationReachedRootsParent;
+      this.cornerCases = Sets.immutableEnumSet(cornerCases);
     }
   }
 
@@ -421,4 +429,76 @@ public final class Absolutizer {
 
     return dotDotNavigatesPastRoot;
   }
+
+  static final boolean RECODE_ENCODED_SPECIAL_PATH_SEGMENTS = false;
+
+  static boolean fixupEncodedDots(StringBuilder partBuf, int pathLeft) {
+    boolean needCompactLeft = false;
+    boolean foundEncodedDotSegment = false;
+    // We could, recode "%2e" to "." and similarly for double dots.
+    // Enable the flag above to experiment with this.
+
+    // We walk left to right and when we find a path segment that decodes to
+    // "." or "..", but contains an encoded dot, we replace it in place.
+    // We then compact left.
+    // This works because both "." and ".." are strictly shorter than
+    // the encoded form.
+    int writeCursor = pathLeft;
+
+    for (int i = pathLeft, n = partBuf.length(); i < n; ++i) {
+      if (encodedDotAt(partBuf, i)) {
+        // Look for a . or endoded dot to the left.
+        int leftBound = i - 1 < pathLeft
+            ? i
+            : partBuf.charAt(i - 1) == '.'
+            ? i - 1
+            : i - 3 >= pathLeft && encodedDotAt(partBuf, i - 3)
+            ? i - 3
+            : i;
+        int rightBound = leftBound != i || i + 3 == n
+            ? i + 3
+            : '.' == partBuf.charAt(i + 3)
+            ? i + 4
+            : encodedDotAt(partBuf, i + 3) ? i + 6 : i + 3;
+
+        // We now know that partBuf[leftBound:rightBound] decodes to
+        // "." or ".." with at least one dot encoded.
+        if ((leftBound == pathLeft || partBuf.charAt(leftBound - 1) == '/')
+            && (rightBound == n || partBuf.charAt(rightBound) == '/')) {
+          foundEncodedDotSegment = true;
+          if (RECODE_ENCODED_SPECIAL_PATH_SEGMENTS) {
+            needCompactLeft = true;
+            partBuf.setCharAt(writeCursor, '.');
+            ++writeCursor;
+            if (leftBound == i && rightBound != i + 3) {
+              partBuf.setCharAt(writeCursor, '.');
+              ++writeCursor;
+            }
+          }
+
+          i = rightBound - 1;  // Don't bother considering this again.
+          continue;
+        }
+      }
+
+      // Compact left
+      if (needCompactLeft) {
+        partBuf.setCharAt(writeCursor, partBuf.charAt(i));
+        ++writeCursor;
+      }
+    }
+    if (needCompactLeft) {
+      partBuf.setLength(writeCursor);  // Finish compacting left
+    }
+
+    return foundEncodedDotSegment;
+  }
+
+  private static boolean encodedDotAt(StringBuilder partBuf, int i) {
+    return i + 2 < partBuf.length()
+        && '%' == partBuf.charAt(i)
+        && '2' == partBuf.charAt(i + 1)
+        && 'e' == (partBuf.charAt(i + 2) | 32);
+  }
+
 }

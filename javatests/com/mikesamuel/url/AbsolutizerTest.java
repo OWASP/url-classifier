@@ -298,7 +298,7 @@ public class AbsolutizerTest {
   };
 
   @Test
-  public void testMikeBrownCanBreakMyCode() throws Exception {
+  public void testMikeBrownCanBreakMyCode() {
     int nFailures = 0, n = absolutizeTestCases.length;
     for (int i = 0; i < n; ++i) {
       if (runTestCase(i)) { ++nFailures; }
@@ -306,11 +306,6 @@ public class AbsolutizerTest {
     if (nFailures != 0) {
       fail(nFailures + " / " + n);
     }
-  }
-
-  @Test
-  public void testOne() throws Exception {
-    assertFalse(runTestCase(185));
   }
 
   private static final SchemeLookupTable SCHEMES = new SchemeLookupTable(
@@ -327,7 +322,7 @@ public class AbsolutizerTest {
               SchemePart.PATH, SchemePart.QUERY)
           ));
 
-  private boolean runTestCase(int i) throws Exception {
+  private boolean runTestCase(int i) {
     String[] absolutizeTestCase = absolutizeTestCases[i];
     String testInput = absolutizeTestCase[0];
     String base = absolutizeTestCase[1];
@@ -410,4 +405,58 @@ public class AbsolutizerTest {
     assertNorm("a/b/c", "a/y/../b/c");
   }
 
+  private static void assertEncDotFixup(String want, String inp) {
+    for (String prefix : new String[] { "", "foo", "%2e", "/." }) {
+      StringBuilder sb = new StringBuilder()
+          .append(prefix)
+          .append(inp);
+      boolean ambiguous = Absolutizer.fixupEncodedDots(sb, prefix.length());
+      String prefixGot = sb.toString();
+      assertEquals("prefix=" + prefix + ", inp=" + inp, !want.equals(inp), ambiguous);
+      if (Absolutizer.RECODE_ENCODED_SPECIAL_PATH_SEGMENTS) {
+        assertEquals("prefix=" + prefix + ", inp=" + inp, prefix + want, prefixGot);
+      } else {
+        assertEquals("prefix=" + prefix + ", inp=" + inp, prefix + inp, prefixGot);
+      }
+    }
+  }
+
+  @Test
+  public final void testDotFixup() {
+    assertEncDotFixup("", "");
+    assertEncDotFixup(".", ".");
+    assertEncDotFixup(".", "%2e");
+    assertEncDotFixup("..", "%2e%2e");
+    assertEncDotFixup("..", ".%2e");
+    assertEncDotFixup("..", "%2e.");
+    assertEncDotFixup("..", "..");
+    assertEncDotFixup("/.", "/.");
+    assertEncDotFixup("/.", "/%2e");
+    assertEncDotFixup("/..", "/%2e%2e");
+    assertEncDotFixup("/..", "/.%2e");
+    assertEncDotFixup("/..", "/%2e.");
+    assertEncDotFixup("/..", "/..");
+    assertEncDotFixup("/./", "/./");
+    assertEncDotFixup("/./", "/%2e/");
+    assertEncDotFixup("/../", "/%2e%2e/");
+    assertEncDotFixup("/../", "/%2e%2E/");
+    assertEncDotFixup("/../", "/%2E%2E/");
+    assertEncDotFixup("/../", "/%2E%2E/");
+    assertEncDotFixup("/../", "/.%2e/");
+    assertEncDotFixup("/../", "/%2e./");
+    assertEncDotFixup("/../", "/../");
+    assertEncDotFixup("./", "./");
+    assertEncDotFixup("./", "%2e/");
+    assertEncDotFixup("../", "%2e%2e/");
+    assertEncDotFixup("../", ".%2e/");
+    assertEncDotFixup("../", "%2e./");
+    assertEncDotFixup("../", "../");
+    assertEncDotFixup("././../.", "%2e/%2e/%2e%2e/%2e");
+    assertEncDotFixup("%2e%2e%2e", "%2e%2e%2e");
+    assertEncDotFixup("%2e.%2e", "%2e.%2e");
+    assertEncDotFixup("%2ef", "%2ef");
+    assertEncDotFixup("f%2e", "f%2e");
+    assertEncDotFixup("%2", "%2");
+    assertEncDotFixup("%", "%");
+  }
 }

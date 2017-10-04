@@ -4,38 +4,16 @@ import com.google.common.base.Preconditions;
 
 /**
  * Encapsulates the context in which a URL is interpreted.
+ * <p>
+ * This includes corner cases about
  */
 public final class URLContext {
   /** A base URL against which relative URLs will be resolved. */
   public final Absolutizer absolutizer;
-  /** @see EncodedDotStrategy */
-  public final EncodedDotStrategy encodedDotStrategy;
   /** @see MicrosoftPathStrategy */
   public final MicrosoftPathStrategy microsoftPathStrategy;
-
-
-  /**
-   * By default, path components like ("%2e", "%2e%2e") that, post decoding
-   * are ambiguous with the special path components (".", "..") will not be
-   * matched.  If these must be matched, then enable this but ensure that the
-   * server that processes these deals with these path components correctly.
-   * Default is TREAT_AS_INVALID
-   */
-  public enum EncodedDotStrategy {
-    /** The default. */
-    TREAT_AS_INVALID,
-    /** */
-    DO_NOT_MATCH,
-    /** */
-    MATCH_AS_PATH,
-    /** */
-    MATCH_AS_DECODED,
-    ;
-
-    /** */
-    @SuppressWarnings("hiding")
-    public static final EncodedDotStrategy DEFAULT = TREAT_AS_INVALID;
-  }
+  /** @see URLSource */
+  public final URLSource urlSource;
 
 
   /**
@@ -62,6 +40,34 @@ public final class URLContext {
 
 
   /**
+   * The kind of entity providing the URL text.
+   */
+  public enum URLSource {
+    /**
+     * The URL came from a message crafted for consumption by a machine.
+     * For example, a HTTP header, or an HTML attribute.
+     */
+    MACHINE_READABLE_INPUT,
+    /**
+     * The URL came from an end user.  For example, copy/pasted from an
+     * email into a browser's URL bar or sent in an email or chat message
+     * to another human.
+     * <p>
+     * Human readable inputs often exclude details like protocols.
+     * A reasonable human assumes {@code user@domain.com} is an email address even
+     * though it is also a valid relative path and that {@code www.example.com} is
+     * a hostname even though it is also a valid relative path URL.
+     */
+    HUMAN_READABLE_INPUT,
+    ;
+
+    /** */
+    @SuppressWarnings("hiding")
+    public static final URLSource DEFAULT = MACHINE_READABLE_INPUT;
+  }
+
+
+  /**
    * A placeholder for an unknown authority.
    * <p>
    * Per https://tools.ietf.org/html/rfc2606 this will not be assigned, and
@@ -77,28 +83,29 @@ public final class URLContext {
 
   /** */
   public URLContext(Absolutizer absolutizer) {
-    this(absolutizer, EncodedDotStrategy.DEFAULT, MicrosoftPathStrategy.DEFAULT);
+    this(absolutizer, MicrosoftPathStrategy.DEFAULT, URLSource.DEFAULT);
   }
 
   private URLContext(
-      Absolutizer absolutizer, EncodedDotStrategy eds,
-      MicrosoftPathStrategy mps) {
+      Absolutizer absolutizer,
+      MicrosoftPathStrategy mps,
+      URLSource urlSource) {
     this.absolutizer = Preconditions.checkNotNull(absolutizer);
-    this.encodedDotStrategy = Preconditions.checkNotNull(eds);
     this.microsoftPathStrategy = Preconditions.checkNotNull(mps);
-  }
-
-  /** @see EncodedDotStrategy */
-  public URLContext with(EncodedDotStrategy eds) {
-    return eds == this.encodedDotStrategy
-        ? this
-        : new URLContext(absolutizer, eds, microsoftPathStrategy);
+    this.urlSource = Preconditions.checkNotNull(urlSource);
   }
 
   /** @see MicrosoftPathStrategy */
   public URLContext with(MicrosoftPathStrategy mps) {
     return mps == this.microsoftPathStrategy
         ? this
-        : new URLContext(absolutizer, encodedDotStrategy, mps);
+        : new URLContext(absolutizer, mps, urlSource);
+  }
+
+  /** @see URLSource */
+  public URLContext with(URLSource us) {
+    return us == this.urlSource
+        ? this
+        : new URLContext(absolutizer, microsoftPathStrategy, us);
   }
 }

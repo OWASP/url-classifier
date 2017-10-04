@@ -26,20 +26,16 @@ public final class BuiltinScheme {
     public PartRanges decompose(
         SchemeLookupTable schemes,
         String schemeSpecificPart, int left, int right) {
-      int authorityLeft = -1, authorityRight = -1;
-      int pathLeft = -1, pathRight = -1;
-      int queryLeft = -1, queryRight = -1;
-      int fragmentLeft = -1, fragmentRight = -1;
-      int contentLeft = -1, contentRight = -1;
-      int contentMetadataLeft = -1, contentMetadataRight = -1;
+      PartRanges.Builder b = new PartRanges.Builder();
 
       int lastSlash = -1;
+      int fragmentLeft = -1;
       for (int i = right; --i >= left;) {
         char c = schemeSpecificPart.charAt(i);
         if (c == '#') {
           lastSlash = -1;
           fragmentLeft = i;
-          fragmentRight = right;
+          b.withFragment(fragmentLeft, right);
         } else if (c == '/' && lastSlash == -1) {
           lastSlash = i;
         }
@@ -47,8 +43,7 @@ public final class BuiltinScheme {
       if (lastSlash >= 0) {
         int originLeft = left;
         int originRight = lastSlash + 1;
-        contentLeft = originRight;
-        contentRight = fragmentLeft >= 0 ? fragmentLeft : right;
+        b.withContent(originRight, fragmentLeft >= 0 ? fragmentLeft : right);
         // Expect the origin to be a URL with an authority and path
         // like http://quth/path/
         for (int i = originLeft; i < originRight; ++i) {
@@ -62,8 +57,7 @@ public final class BuiltinScheme {
                 schemes, schemeSpecificPart, i + 1, originRight);
             if (originRanges == null) { return null; }
             // https://html.spec.whatwg.org/multipage/origin.html#concept-origin defines "origin"
-            authorityLeft = originRanges.authorityLeft;
-            authorityRight = originRanges.authorityRight;
+            b.withAuthority(originRanges.authorityLeft, originRanges.authorityRight);
             // A tuple origin consists of:
             //
             //   A scheme (a scheme).
@@ -81,13 +75,7 @@ public final class BuiltinScheme {
       } else {
         return null;
       }
-      return new PartRanges(
-          authorityLeft, authorityRight,
-          pathLeft, pathRight,
-          queryLeft, queryRight,
-          fragmentLeft, fragmentRight,
-          contentLeft, contentRight,
-          contentMetadataLeft, contentMetadataRight);
+      return b.build();
     }
 
     @Override
@@ -111,13 +99,10 @@ public final class BuiltinScheme {
         for (int i = pr.contentLeft; i < contentRight; ++i) {
           char c = schemeSpecificPart.charAt(i);
           if (c == ',') {
-            return new PartRanges(
-                pr.authorityLeft, pr.authorityRight,
-                pr.pathLeft, pr.pathRight,
-                pr.queryLeft, pr.queryRight,
-                pr.fragmentLeft, pr.fragmentRight,
-                i + 1, contentRight,
-                pr.contentLeft, i);
+            return new PartRanges.Builder(pr)
+                .withContent(i + 1, contentRight)
+                .withContentMetadata(pr.contentLeft, i)
+                .build();
           }
         }
       }
@@ -233,48 +218,38 @@ final class OpaqueSchemeWithQuery extends Scheme {
   public PartRanges decompose(
       SchemeLookupTable schemes,
       String schemeSpecificPart, int left, int right) {
-    int authorityLeft = -1, authorityRight = -1;
-    int pathLeft = -1, pathRight = -1;
-    int queryLeft = -1, queryRight = -1;
-    int fragmentLeft = -1, fragmentRight = -1;
-    int contentLeft = -1, contentRight = -1;
-    int contentMetadataLeft = -1, contentMetadataRight = -1;
+    PartRanges.Builder b = new PartRanges.Builder();
 
     int cursor = left;
-    contentLeft = cursor;
+    int contentLeft = cursor;
     for (;cursor < right; ++cursor) {
       char c = schemeSpecificPart.charAt(cursor);
       if (c == '?' || c == '#') {
         break;
       }
     }
-    contentRight = cursor;
+    b.withContent(contentLeft, cursor);
 
     if (cursor < right
         && '?' == schemeSpecificPart.charAt(cursor)) {
-      queryLeft = cursor;
+      int queryLeft = cursor;
       for (; cursor < right; ++cursor) {
         char c = schemeSpecificPart.charAt(cursor);
         if (c == '#') {
           break;
         }
       }
-      queryRight = cursor;
+      b.withQuery(queryLeft, cursor);
     }
 
     if (cursor < right
         && '#' == schemeSpecificPart.charAt(cursor)) {
-      fragmentLeft = cursor;
-      fragmentRight = cursor = right;
+      b.withFragment(cursor, right);
+      cursor = right;
     }
+    Preconditions.checkState(cursor == right);
 
-    return new PartRanges(
-        authorityLeft, authorityRight,
-        pathLeft, pathRight,
-        queryLeft, queryRight,
-        fragmentLeft, fragmentRight,
-        contentLeft, contentRight,
-        contentMetadataLeft, contentMetadataRight);
+    return b.build();
   }
 
   @Override
