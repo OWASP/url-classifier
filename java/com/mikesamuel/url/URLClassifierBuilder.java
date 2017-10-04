@@ -172,7 +172,7 @@ public final class URLClassifierBuilder {
   private boolean matchesNULs = false;
   private boolean allowPathsThatReachRootsParent = false;
   private final EnumSet<URLValue.URLSpecCornerCase> toleratedCornerCases =
-      EnumSet.noneOf(URLValue.URLSpecCornerCase.class);  // TODO: adder
+      EnumSet.noneOf(URLValue.URLSpecCornerCase.class);
 
   /**
    * URLs with NULs are a common problem case.
@@ -194,8 +194,28 @@ public final class URLClassifierBuilder {
    * for x.originalUrlText in your output, but not if you plan on
    * using x.originalUrlText.
    */
-  public URLClassifierBuilder allowPathsThatReachRootsParent(boolean enable) {
+  public URLClassifierBuilder toleratePathsThatReachRootsParent(boolean enable) {
     this.allowPathsThatReachRootsParent = enable;
+    return this;
+  }
+
+  /**
+   * Don't reject as {@link Classification#INVALID} URLs whose interpretation involves
+   * the given corner cases.
+   */
+  public URLClassifierBuilder tolerate(URLValue.URLSpecCornerCase... cornerCases) {
+    return tolerate(Arrays.asList(cornerCases));
+  }
+
+  /**
+   * Don't reject as {@link Classification#INVALID} URLs whose interpretation involves
+   * the given corner cases.
+   */
+  public URLClassifierBuilder tolerate(
+      Iterable<? extends URLValue.URLSpecCornerCase> cornerCases) {
+    for (URLValue.URLSpecCornerCase cornerCase : cornerCases) {
+      this.toleratedCornerCases.add(cornerCase);
+    }
     return this;
   }
 

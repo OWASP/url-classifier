@@ -3,6 +3,7 @@ package com.mikesamuel.url;
 import static org.junit.Assert.*;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 
 import org.junit.Test;
 
@@ -362,7 +363,9 @@ public class AbsolutizerTest {
   private void assertNorm(String want, String inp) {
     for (String prefix : new String[] { "", "foo", "/foo/" }) {
       StringBuilder buf = new StringBuilder().append(prefix).append(inp);
-      Absolutizer.removeDotSegmentsInPlace(buf, prefix.length());
+      EnumSet<URLValue.URLSpecCornerCase> cornerCases = EnumSet.noneOf(
+          URLValue.URLSpecCornerCase.class);
+      Absolutizer.removeDotSegmentsInPlace(buf, prefix.length(), cornerCases);
       String str = buf.toString();
       assertTrue(
           "`" + inp + "` with prefix `" + prefix + "` => `" + str + "`",
@@ -458,5 +461,45 @@ public class AbsolutizerTest {
     assertEncDotFixup("f%2e", "f%2e");
     assertEncDotFixup("%2", "%2");
     assertEncDotFixup("%", "%");
+  }
+
+  private static void assertCornerCases(
+      String refUrl, String baseUrl,
+      String wantUrl, URLValue.URLSpecCornerCase... wantCases) {
+    Absolutizer abs = new Absolutizer(
+        URLContext.DEFAULT.absolutizer.schemes, baseUrl);
+    Absolutizer.Result got = abs.absolutize(refUrl);
+    EnumSet<URLValue.URLSpecCornerCase> wantCaseSet = EnumSet.noneOf(
+        URLValue.URLSpecCornerCase.class);
+    wantCaseSet.addAll(Arrays.asList(wantCases));
+    assertEquals(
+        "base=" + baseUrl + ", ref=" + refUrl,
+        wantCaseSet, got.cornerCases);
+    assertEquals(
+        "base=" + baseUrl + ", ref=" + refUrl,
+        wantUrl, got.absUrlText);
+  }
+
+  @Test
+  public final void testKnownCornerCases() {
+    assertCornerCases(
+        "../bar", "file:foo/",
+        "file:bar",
+        URLValue.URLSpecCornerCase.RELATIVE_URL_MERGED_TO_ABSOLUTE);
+    assertCornerCases(
+        "%2e%2e/%2e%2e/%2e%2e/etc/passwd", "https://example.com/",
+        "https://example.com/%2e%2e/%2e%2e/%2e%2e/etc/passwd",
+        URLValue.URLSpecCornerCase.ENCODED_DOT_PATH_SEGMENST);
+    assertCornerCases(
+        ".///bar", "file:///foo",
+        "file://///bar");
+    assertCornerCases(
+        ".///bar", "file:/foo",
+        "file://///bar",
+        URLValue.URLSpecCornerCase.PATH_AUTHORITY_AMBIGUITY);
+    assertCornerCases(
+        ".///bar", "file:foo",
+        "file:////bar",
+        URLValue.URLSpecCornerCase.PATH_AUTHORITY_AMBIGUITY);
   }
 }

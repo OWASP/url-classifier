@@ -67,7 +67,7 @@ public final class Absolutizer {
         StringBuilder sb = new StringBuilder(originalUrlText.length());
         sb.append(originalUrlText, 0, originalUrlRanges.pathRight);
         pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(
-            sb, originalUrlRanges.pathLeft);
+            sb, originalUrlRanges.pathLeft, cornerCases);
         if (sb.length() != originalUrlRanges.pathRight) {
           // Path normalization did some work.
           sb.append(originalUrlText, originalUrlRanges.pathRight, originalUrlText.length());
@@ -167,7 +167,8 @@ public final class Absolutizer {
         if (fixupEncodedDots(partBuf, absPathLeft)) {
           cornerCases.add(URLValue.URLSpecCornerCase.ENCODED_DOT_PATH_SEGMENST);
         }
-        pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(partBuf, absPathLeft);
+        pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(
+            partBuf, absPathLeft, cornerCases);
         abs.withPath(absPathLeft, partBuf.length());
       }
 //      System.err.println("absPathRight=" + absPathRight + ", partBuf=" + partBuf);
@@ -233,6 +234,13 @@ public final class Absolutizer {
           schemes, absUrlText, contextEos, absUrlText.length());
     }
 
+    if (contextRanges.authorityLeft < 0 && originalUrlRanges.authorityLeft < 0
+        && absUrlRanges.pathRight - absUrlRanges.pathLeft >= 2
+        && '/' == absUrlText.charAt(absUrlRanges.pathLeft)
+        && '/' == absUrlText.charAt(absUrlRanges.pathLeft + 1)) {
+      cornerCases.add(URLValue.URLSpecCornerCase.PATH_AUTHORITY_AMBIGUITY);
+    }
+
     return new Result(
         scheme, originalUrlText, originalUrlRanges, absUrlText, absUrlRanges,
         pathSimplificationReachedRootsParent, cornerCases);
@@ -295,7 +303,8 @@ public final class Absolutizer {
    * @return true iff a "prefix/" or "/prefix/" before path[:left]
    *     would have been removed because of ".." handling were it present.
    */
-  static boolean removeDotSegmentsInPlace(StringBuilder path, int left) {
+  static boolean removeDotSegmentsInPlace(StringBuilder path, int left,
+      EnumSet<URLValue.URLSpecCornerCase> cornerCases) {
     // The code below has excerpts from the spec interspersed.
     // The "input buffer" and "output buffer" referred to in the spec
     // are both just regions of path.
@@ -394,6 +403,8 @@ public final class Absolutizer {
             // Do not convert relative URLs into absolute ones via parent
             // navigation.
             inputBufferStart += 1;
+            cornerCases.add(
+                URLValue.URLSpecCornerCase.RELATIVE_URL_MERGED_TO_ABSOLUTE);
           }
           continue;
         }
@@ -431,7 +442,6 @@ public final class Absolutizer {
   }
 
   static final boolean RECODE_ENCODED_SPECIAL_PATH_SEGMENTS = false;
-
   static boolean fixupEncodedDots(StringBuilder partBuf, int pathLeft) {
     boolean needCompactLeft = false;
     boolean foundEncodedDotSegment = false;
