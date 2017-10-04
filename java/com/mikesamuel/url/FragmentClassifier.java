@@ -25,6 +25,20 @@ public interface FragmentClassifier extends URLClassifier {
         FragmentClassifierOr.FP_FALSE,
         FragmentClassifierOr.FP_NEW);
   }
+
+  /** A classifier that matches all inputs. */
+  public static FragmentClassifier any() {
+    return AnyFragmentClassifier.INSTANCE;
+  }
+}
+
+final class AnyFragmentClassifier implements FragmentClassifier {
+  static final AnyFragmentClassifier INSTANCE = new AnyFragmentClassifier();
+
+  @Override
+  public Classification apply(URLValue x) {
+    return Classification.MATCH;
+  }
 }
 
 final class FragmentClassifierOr

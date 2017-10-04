@@ -1,6 +1,13 @@
 package com.mikesamuel.url;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.net.MediaType;
 
 /**
  * Bundles a URL with sufficient context to allow part-wise analysis.
@@ -128,6 +135,39 @@ public final class URLValue {
     return fragment;
   }
 
+  private String contentMetadata;
+  /**
+   * The contentMetadata or null if none is available.
+   * This includes any leading '{@code #}'.
+   */
+  public String getContentMetadata() {
+    if (contentMetadata == null) {
+      if (ranges != null && ranges.contentMetadataLeft >= 0) {
+        contentMetadata = urlText.substring(
+            ranges.contentMetadataLeft, ranges.contentMetadataRight);
+      }
+    }
+    return contentMetadata;
+  }
+
+  private Optional<MediaType> mediaTypeOpt;
+  /**
+   * The media type for the associated content if specified in
+   * the content metadata.
+   */
+  public MediaType getContentMediaType() {
+    if (mediaTypeOpt == null) {
+      mediaTypeOpt = Optional.absent();
+      if (scheme == BuiltinScheme.DATA) {
+        String metadata = getContentMetadata();
+        if (metadata != null) {
+          mediaTypeOpt = DataSchemeMediaTypeUtil.parseMediaTypeFromDataMetadata(
+              metadata);
+        }
+      }
+    }
+    return mediaTypeOpt.orNull();
+  }
 
   @Override
   public boolean equals(Object o) {
@@ -143,4 +183,110 @@ public final class URLValue {
   public int hashCode() {
     return originalUrlText.hashCode() + 31 * context.hashCode();
   }
+}
+
+
+final class DataSchemeMediaTypeUtil {
+  /**
+   * RFC 2397 defines mediatype thus
+   * """
+   *         mediatype  := [ type "/" subtype ] *( ";" parameter )
+   *         ...
+   *         parameter  := attribute "=" value
+   *     where ... "type", "subtype", "attribute" and "value" are
+   *     the corresponding tokens from [RFC2045], represented using
+   *     URL escaped encoding of [RFC2396] as necessary.
+   * """
+   * so we need to percent decode after identifying the "/" and ";"
+   * boundaries.
+   * <p>
+   * In addition, parameter values may be quoted-strings per RFC 822
+   * which allows \-escaping.
+   * It is unclear whether quotes can be %-escaped.
+   * <p>
+   * A strict reading of this means that a ',' or ';' in a quoted
+   * string is part of the parameter value.
+   */
+  private static final Pattern MEDIA_TYPE_PATTERN = Pattern.compile(
+      ""
+      + "^"
+      + "([^/;\"]+)"  // type in group 1
+      + "/"
+      + "([^/;\"]+)"   // type in group 2
+      + "("   // parameters in group 3
+      +   "(?:[;]"  // each parameter is preceded by a semicolon
+      +     "(?!=base64(?:;|\\z))"  // base64 is not a media type parameter.
+      +     "(?:"
+      +       "[^;\"%]"  // one character in a parameter key or value
+      +       "|(?:\"|%22)(?:[^\\\\\"%]|\\\\.|%5c.|%(?!=22|5c))*(?:\"|%22)"  // quoted-string
+      +       "|%(?!=22|5c)"  // encoded non-meta character
+      +     ")*"  // end key=value loop
+      +   ")*"  // end parameter loop
+      + ")",  // end group 3
+      Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+
+  static Optional<MediaType> parseMediaTypeFromDataMetadata(
+      String contentMetadata) {
+    Matcher m = MEDIA_TYPE_PATTERN.matcher(contentMetadata);
+    if (!m.find()) {
+      return Optional.absent();
+    }
+    String type = PctDecode.of(m.group(1)).orNull();
+    String subtype = PctDecode.of(m.group(2)).orNull();
+    if (type == null || subtype == null) {
+      return Optional.absent();
+    }
+    MediaType mt;
+    try {
+      mt = MediaType.create(type, subtype);
+    } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+      return Optional.absent();
+    }
+
+    String parameters = m.group(3);
+    if (parameters != null) {
+      Multimap<String, String> parameterValues = LinkedListMultimap.create();
+      for (String parameter : parameters.split(";")) {
+        if (parameter.isEmpty()) { continue; }
+        int eq = parameter.indexOf('=');
+        if (eq < 0) {
+          return Optional.absent();
+        }
+        String key = PctDecode.of(parameter.substring(0, eq)).orNull();
+        String value = PctDecode.of(parameter.substring(eq + 1)).orNull();
+        if (key == null || value == null) {
+          return Optional.absent();
+        }
+        value = maybeDecodeRFC822QuotedString(value);
+        parameterValues.put(key, value);
+      }
+      try {
+        mt = mt.withParameters(parameterValues);
+      } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+        return Optional.absent();
+      }
+    }
+
+    return Optional.of(mt);
+  }
+
+  private static String maybeDecodeRFC822QuotedString(String tokenOrQuotedString) {
+    int n = tokenOrQuotedString.length();
+    if (n >= 2 && '"' == tokenOrQuotedString.charAt(0)
+        && '"' == tokenOrQuotedString.charAt(n - 1)) {
+      StringBuilder sb = new StringBuilder(n - 2);
+      for (int i = 1; i < n - 1; ++i) {
+        char c = tokenOrQuotedString.charAt(i);
+        if (c == '\\' && i + 1 < n) {
+          sb.append(tokenOrQuotedString.charAt(i + 1));
+          ++i;
+        } else {
+          sb.append(c);
+        }
+      }
+      return sb.toString();
+    }
+    return tokenOrQuotedString;
+  }
+
 }

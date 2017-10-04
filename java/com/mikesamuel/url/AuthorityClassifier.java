@@ -29,6 +29,20 @@ public interface AuthorityClassifier extends URLClassifier {
         AuthorityClassifierOr.AP_FALSE,
         AuthorityClassifierOr.AP_NEW);
   }
+
+  /** A classifier that matches all inputs. */
+  public static AuthorityClassifier any() {
+    return AnyAuthorityClassifier.INSTANCE;
+  }
+}
+
+final class AnyAuthorityClassifier implements AuthorityClassifier {
+  static final AnyAuthorityClassifier INSTANCE = new AnyAuthorityClassifier();
+
+  @Override
+  public Classification apply(URLValue x) {
+    return Classification.MATCH;
+  }
 }
 
 final class AuthorityClassifierOr

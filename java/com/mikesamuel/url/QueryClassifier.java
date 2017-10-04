@@ -23,6 +23,20 @@ public interface QueryClassifier extends URLClassifier {
       QueryClassifierOr.QP_FALSE,
       QueryClassifierOr.QP_NEW);
   }
+
+  /** A classifier that matches all inputs. */
+  public static QueryClassifier any() {
+    return AnyQueryClassifier.INSTANCE;
+  }
+}
+
+final class AnyQueryClassifier implements QueryClassifier {
+  static final AnyQueryClassifier INSTANCE = new AnyQueryClassifier();
+
+  @Override
+  public Classification apply(URLValue x) {
+    return Classification.MATCH;
+  }
 }
 
 final class QueryClassifierOr

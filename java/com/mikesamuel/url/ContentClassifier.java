@@ -33,6 +33,20 @@ public interface ContentClassifier extends URLClassifier {
 
         });
   }
+
+  /** A classifier that matches all inputs. */
+  public static ContentClassifier any() {
+    return AnyContentClassifier.INSTANCE;
+  }
+}
+
+final class AnyContentClassifier implements ContentClassifier {
+  static final AnyContentClassifier INSTANCE = new AnyContentClassifier();
+
+  @Override
+  public Classification apply(URLValue x) {
+    return Classification.MATCH;
+  }
 }
 
 final class ContentClassifierOr

@@ -1,7 +1,11 @@
 package com.mikesamuel.url;
 
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.regex.Pattern;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -78,14 +82,90 @@ public final class URLClassifierBuilder {
    * allow/match methods will not affect previously built classifiers.
    */
   public URLClassifier build() {
-    return null;  // TODO
-    // return new URLClassifierImpl(...);
+    EnumSet<URLClassifierImpl.GlobalFlag> flags =
+        EnumSet.noneOf(URLClassifierImpl.GlobalFlag.class);
+    if (this.allowPathsThatReachRootsParent) {
+      flags.add(URLClassifierImpl.GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
+    }
+    if (this.matchesNULs) {
+      flags.add(URLClassifierImpl.GlobalFlag.ALLOW_NULS);
+    }
+    ImmutableSet<Scheme> allowedSchemeSet = allowedSchemes.build();
+    MediaTypeClassifier mtc = mediaTypeClassifier != null
+        ? mediaTypeClassifier
+        : MediaTypeClassifier.or();
+    AuthorityClassifier ac = authorityClassifier != null
+        ? authorityClassifier
+        : AuthorityClassifier.any();
+    ImmutableSet<String> positivePathGlobSet = positivePathGlobs.build();
+    ImmutableSet<String> negativePathGlobSet = negativePathGlobs.build();
+    Pattern positivePathPattern = positivePathGlobSet.isEmpty()
+        ? null
+        : pathGlobsToPattern(positivePathGlobSet);
+    Pattern negativePathPattern = negativePathGlobSet.isEmpty()
+        ? null
+        : pathGlobsToPattern(negativePathGlobSet);
+    QueryClassifier qc = queryClassifier != null
+        ? queryClassifier
+        : QueryClassifier.any();
+    FragmentClassifier fc = fragmentClassifier != null
+        ? fragmentClassifier
+        : FragmentClassifier.any();
+    ContentClassifier cc = contentClassifier != null
+        ? contentClassifier
+        : ContentClassifier.any();
+
+    return new URLClassifierImpl(
+        flags,
+        allowedSchemeSet,
+        mtc,
+        ac,
+        positivePathPattern,
+        negativePathPattern,
+        qc,
+        fc,
+        cc
+        );
+  }
+
+  private static Pattern pathGlobsToPattern(Iterable<? extends String> globs) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("^(?:");
+    boolean wroteOne = false;
+    for (String glob : globs) {
+      if (wroteOne) {
+        sb.append('|');
+      }
+      wroteOne = true;
+
+      // Split the glob so that all "*" and "**" segments appear at the front
+      // of tokens and any trailing /? appears by itself.
+      String[] parts = glob.split("(?=[*][*]?|/[?]\\z)");
+      for (int i = 0, n = parts.length; i < n; ++i) {
+        String part = parts[i];
+        if (part.startsWith("**")) {
+          sb.append("(?<=^|/).*(?=/|\\z)");
+          part = part.substring(2);
+        } else if (part.startsWith("*")) {
+          sb.append("[^/]*");
+          part = part.substring(1);
+        } else if (i + 1 == n && "/?".equals(part)) {
+          sb.append("(?:/\\z)?");
+          part = "";
+        }
+        if (!part.isEmpty()) {
+          Optional<String> partDec = PctDecode.of(part);
+          sb.append(Pattern.quote(partDec.get()));
+        }
+      }
+    }
+    if (!wroteOne) { sb.append("(?!)"); }
+    sb.append(")\\z");
+    return Pattern.compile(sb.toString());
   }
 
   //// Flags that affect multiple sub-classifiers.
   private boolean matchesNULs = false;
-  // TODO: Move this to the URLContext
-  private boolean matchMicrosoftPathBugForBug = false;
   private boolean allowPathsThatReachRootsParent = false;
 
   /**
@@ -147,20 +227,21 @@ public final class URLClassifierBuilder {
   }
 
   //// Sub-classifiers of kind authority  http://MATCH_ME/...
-  public URLClassifierBuilder matchesHosts(String... hostnames) {
-    // TODO
-    return this;
-  }
-  public URLClassifierBuilder matchesHosts(Iterable<? extends String> hostnames) {
-    // TODO
-    return this;
-  }
-  public URLClassifierBuilder matchesAuthority(AuthorityClassifier authMatcher) {
-    // TODO
+  private AuthorityClassifier authorityClassifier;
+  /**
+   * Specifies that any matching URLs must naturally have no authority
+   * or have one that matches the given authority classifier.
+   */
+  public URLClassifierBuilder matchesAuthority(AuthorityClassifier ac) {
+    this.authorityClassifier = this.authorityClassifier == null
+        ? ac
+        : AuthorityClassifier.or(this.authorityClassifier, ac);
     return this;
   }
 
   //// Sub-classifiers of kind path       http://example.com/MATCH_ME?...
+  private final ImmutableSet.Builder<String> positivePathGlobs = ImmutableSet.builder();
+  private final ImmutableSet.Builder<String> negativePathGlobs = ImmutableSet.builder();
   /**
    * In the glob, `**` matches one or more path components and * matches
    * a single path component at most.  Matching is done after processing the
@@ -181,48 +262,102 @@ public final class URLClassifierBuilder {
   public URLClassifierBuilder matchesPathGlobs(String... pathGlobs) {
     return matchesPathGlobs(ImmutableList.copyOf(pathGlobs));
   }
+  /** @see #matchesPathGlobs(String...) */
   public URLClassifierBuilder matchesPathGlobs(
       Iterable<? extends String> pathGlobs) {
-    // TODO
+    for (String pathGlob : pathGlobs) {
+      Optional<String> decPathGlob = PctDecode.of(pathGlob);
+      Preconditions.checkArgument(
+          decPathGlob.isPresent(), "Invalid %-encoding in path glob", pathGlob);
+      positivePathGlobs.add(pathGlob);
+    }
     return this;
   }
   /**
-   * Does not match any of the path globs where not(INVALID) == INVALID.
+   * Like {@link #matchesPathGlobs(String...)} but the path must not match.
    */
   public URLClassifierBuilder notMatchesPathGlobs(String... pathGlobs) {
     return notMatchesPathGlobs(ImmutableList.copyOf(pathGlobs));
   }
+  /** @see #notMatchesPathGlobs(String...) */
   public URLClassifierBuilder notMatchesPathGlobs(
       Iterable<? extends String> pathGlobs) {
-    return this;  // TODO
+    for (String pathGlob : pathGlobs) {
+      Optional<String> decPathGlob = PctDecode.of(pathGlob);
+      Preconditions.checkArgument(
+          decPathGlob.isPresent(), "Invalid %-encoding in path glob", pathGlob);
+      negativePathGlobs.add(pathGlob);
+    }
+    return this;
   }
 
+  private QueryClassifier queryClassifier;
   //// Sub-classifiers of kind query      http://example.com/?MATCH_ME#...
-  public URLClassifierBuilder matchesQuery(QueryClassifier queryClassifier) {
-    return this;  // TODO
+  /**
+   * Specifies a query classifier that, in order for the URL to match,
+   * must match the URL's query if the URL's scheme naturally has a query.
+   */
+  public URLClassifierBuilder matchesQuery(QueryClassifier qc) {
+    this.queryClassifier = this.queryClassifier == null
+        ? qc
+        : QueryClassifier.or(this.queryClassifier, qc);
+    return this;
   }
   /**
    * Reverses the classifier where not(INVALID) == INVALID.
    */
-  public URLClassifierBuilder notMatchesQuery(QueryClassifier queryClassifier) {
-    return this;  // TODO
+  public URLClassifierBuilder notMatchesQuery(QueryClassifier qc) {
+    return matchesQuery(new NotQueryClassifier(qc));
+  }
+  static final class NotQueryClassifier implements QueryClassifier {
+    final QueryClassifier qc;
+
+    NotQueryClassifier(QueryClassifier qc) {
+      this.qc = qc;
+    }
+
+    @Override
+    public Classification apply(URLValue x) {
+      return qc.apply(x).invert();
+    }
   }
 
   //// Sub-classifiers of kind fragment   http://example.com/#MATCH_ME
+  private FragmentClassifier fragmentClassifier;
+  /**
+   * Specifies a fragment classifier that, in order for the URL to match,
+   * must match the URL's fragment.
+   */
   public URLClassifierBuilder matchesFragment(
-      FragmentClassifier fragmentClassifier) {
-    return this;  // TODO
+      FragmentClassifier fc) {
+    this.fragmentClassifier = this.fragmentClassifier == null
+        ? fc
+        : FragmentClassifier.or(this.fragmentClassifier, fc);
+    return this;
   }
   /**
    * Reverses the classifier where not(INVALID) == INVALID.
    */
   public URLClassifierBuilder notMatchesFragment(
-      FragmentClassifier fragmentClassifier) {
-    return this;  // TODO
+      FragmentClassifier fc) {
+    return matchesFragment(new NotFragmentClassifier(fc));
+  }
+  static final class NotFragmentClassifier implements FragmentClassifier {
+    final FragmentClassifier fc;
+
+    NotFragmentClassifier(FragmentClassifier fc) {
+      this.fc = fc;
+    }
+
+    @Override
+    public Classification apply(URLValue x) {
+      return fc.apply(x).invert();
+    }
   }
 
   //// Sub-classifiers of kind content    javascript:MATCH_ME
-  ////                                   data:foo/bar,MATCH_ME
+  ////                                    data:foo/bar,MATCH_ME
+  private ContentClassifier contentClassifier;
   /**
    * Matches when the scheme-specific part matches the classifier.
    * This is applied after any content metadata is stripped and after decoding.
@@ -231,7 +366,108 @@ public final class URLClassifierBuilder {
    * base64 is specified, the content is base64 decoded;
    * blob: URLs have the origin stripped.
    */
-  public URLClassifierBuilder matchesContent(ContentClassifier p) {
-    return this;  // TODO
+  public URLClassifierBuilder matchesContent(ContentClassifier c) {
+    this.contentClassifier = this.contentClassifier == null
+        ? c
+        : ContentClassifier.or(this.contentClassifier, c);
+    return this;
+  }
+}
+
+final class URLClassifierImpl implements URLClassifier {
+  final boolean matchesNULs;
+  final boolean allowPathsThatReachRootsParent;
+  final ImmutableSet<Scheme> allowedSchemeSet;
+  final MediaTypeClassifier mediaTypeClassifier;
+  final AuthorityClassifier authorityClassifier;
+  final Pattern positivePathPattern;
+  final Pattern negativePathPattern;
+  final QueryClassifier queryClassifier;
+  final FragmentClassifier fragmentClassifier;
+  final ContentClassifier contentClassifier;
+
+  public URLClassifierImpl(
+      EnumSet<GlobalFlag> flags,
+      ImmutableSet<Scheme> allowedSchemeSet,
+      MediaTypeClassifier mediaTypeClassifier,
+      AuthorityClassifier authorityClassifier,
+      Pattern positivePathPattern,
+      Pattern negativePathPattern,
+      QueryClassifier queryClassifier,
+      FragmentClassifier fragmentClassifier,
+      ContentClassifier contentClassifier) {
+    this.matchesNULs = flags.contains(GlobalFlag.ALLOW_NULS);
+    this.allowPathsThatReachRootsParent = flags.contains(
+        GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
+    this.allowedSchemeSet = allowedSchemeSet;
+    this.mediaTypeClassifier = mediaTypeClassifier;
+    this.authorityClassifier = authorityClassifier;
+    this.positivePathPattern = positivePathPattern;
+    this.negativePathPattern = negativePathPattern;
+    this.queryClassifier = queryClassifier;
+    this.fragmentClassifier = fragmentClassifier;
+    this.contentClassifier = contentClassifier;
+  }
+
+  enum GlobalFlag {
+    ALLOW_NULS,
+    ALLOW_PATHS_THAT_REACH_ROOT_PARENT,
+  }
+
+  @Override
+  public Classification apply(URLValue x) {
+    if (!matchesNULs && x.originalUrlText.indexOf('\0') >= 0) {
+      return Classification.NOT_A_MATCH;
+    }
+
+    Scheme s = x.scheme;
+    if (!allowedSchemeSet.contains(s)) {
+      return Classification.NOT_A_MATCH;
+    }
+    if (s.naturallyHasAuthority || x.ranges.authorityLeft >= 0) {
+      Classification c = authorityClassifier.apply(x);
+      if (c != Classification.MATCH) {
+        return c;
+      }
+    }
+    String path = x.getPath();
+    if (path != null) {
+      Optional<String> decPathOpt = PctDecode.of(path);
+      if (!decPathOpt.isPresent()) {
+        return Classification.INVALID;
+      }
+      if (!allowPathsThatReachRootsParent
+          && x.pathSimplificationReachedRootsParent) {
+        return Classification.NOT_A_MATCH;
+      }
+      String decPath = decPathOpt.get();
+      if (negativePathPattern != null
+          && negativePathPattern.matcher(decPath).matches()) {
+        return Classification.NOT_A_MATCH;
+      }
+      if (positivePathPattern != null
+          && !positivePathPattern.matcher(decPath).matches()) {
+        return Classification.NOT_A_MATCH;
+      }
+    }
+    if (s.naturallyHasQuery || x.ranges.queryLeft >= 0) {
+      Classification c = queryClassifier.apply(x);
+      if (c != Classification.MATCH) {
+        return c;
+      }
+    }
+    if (mediaTypeClassifier != null && x.getContentMediaType() != null) {
+      Classification c = mediaTypeClassifier.apply(x);
+      if (c != Classification.MATCH) {
+        return c;
+      }
+    }
+    if (s.naturallyEmbedsContent || x.ranges.contentLeft >= 0) {
+      Classification c = contentClassifier.apply(x);
+      if (c != Classification.MATCH) {
+        return c;
+      }
+    }
+    return fragmentClassifier.apply(x);
   }
 }
