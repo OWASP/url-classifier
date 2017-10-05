@@ -34,7 +34,7 @@ public final class AuthorityClassifierBuilder {
   private boolean matchesAnyHost = false;
   private final ImmutableSet.Builder<Integer> allowedPorts = ImmutableSet.builder();
   private Predicate<? super Integer> allowedPortClassifier = null;
-  private Predicate<? super CharSequence> allowedUnameClassifier = null;
+  private Predicate<? super Optional<String>> allowedUnameClassifier = null;
   // We intentionally do not allow matching against a password.
   // There is no way to match http://msamuel:hello-kitty@google.com/
   // via this API.  Also, get your own password.
@@ -71,7 +71,7 @@ public final class AuthorityClassifierBuilder {
     if (this.allowedPortClassifier != null) {
       portClassifier = this.allowedPortClassifier;
     }
-    Predicate<? super CharSequence> unameClassifier = Predicates.alwaysTrue();
+    Predicate<? super Optional<String>> unameClassifier = Predicates.alwaysTrue();
     if (this.allowedUnameClassifier != null) {
       unameClassifier = this.allowedUnameClassifier;
     }
@@ -194,7 +194,7 @@ public final class AuthorityClassifierBuilder {
    * http://@example.com/ will not match.
    */
   public AuthorityClassifierBuilder matchesUserName(
-      Predicate<? super CharSequence> unameIsAllowed) {
+      Predicate<? super Optional<String>> unameIsAllowed) {
     Preconditions.checkNotNull(unameIsAllowed);
     if (this.allowedUnameClassifier == null) {
       allowedUnameClassifier = unameIsAllowed;
@@ -215,15 +215,22 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
   private final boolean matchesAnyHost;
   private final int[] allowedPortsSorted;
   private final Predicate<? super Integer> portClassifier;
-  private final Predicate<? super CharSequence> unameClassifier;
+  private final Predicate<? super Optional<String>> unameClassifier;
 
-  private static final boolean EXPLAIN_INVALID = false;
+  enum Diagnostics implements Diagnostic {
+    PASSWORD_PRESENT,
+    INHERITS_PLACEHOLDER_AUTHORITY,
+    USERNAME_DOES_NOT_MATCH,
+    DISALLOWED_PORT,
+    MISSING_HOST,
+    HOST_NOT_IN_APPROVED_SET,
+  }
 
   public AuthorityClassifierImpl(
       ImmutableSet<Inet4Address> ipv4Set, ImmutableSet<Inet6Address> ipv6Set,
       ImmutableSet<InternetDomainName> canonHostnameSet, HostGlobMatcher hostGlobMatcher,
       boolean matchesAnyHost, int[] allowedPortsSorted, Predicate<? super Integer> portClassifier,
-      Predicate<? super CharSequence> unameClassifier) {
+      Predicate<? super Optional<String>> unameClassifier) {
     this.ipv4Set = ipv4Set;
     this.ipv6Set = ipv6Set;
     this.domainNameSet = canonHostnameSet;
@@ -235,39 +242,14 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
   }
 
   @Override
-  public Classification apply(URLValue x) {
-    String auth = x.getAuthority();
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+    Authority auth = x.getAuthority(r);
     if (auth == null) {
-      if (x.scheme.naturallyHasAuthority) {
-        if (EXPLAIN_INVALID) { System.err.println("missing authority"); }
+      if (x.ranges.authorityLeft >= 0 || x.scheme.naturallyHasAuthority) {
         return Classification.INVALID;
       } else {
         return Classification.NOT_A_MATCH;
-      }
-    }
-
-    int at = auth.lastIndexOf('@');
-    int colon = auth.indexOf(':');
-
-    // An authority has the form [uname[':'[password]]'@']host[':'port]
-    CharSequence uname = null;
-    if (at >= 0) {
-      if (colon >= 0 && colon < at) {
-        // There's a password.
-        // We don't encourage password matching in URL classifiers.
-        // Don't put passwords in URLs.
-        // Tell your friends.
-        if (EXPLAIN_INVALID) { System.err.println("password"); }
-        return Classification.INVALID;
-      }
-      Optional<CharSequence> unameOpt = Percent.decode(auth, 0, at, false);
-      if (unameOpt.isPresent()) {
-        uname = unameOpt.get();
-      } else {
-        if (EXPLAIN_INVALID) {
-          System.err.println("can't decode uname");
-        }
-        return Classification.INVALID;
       }
     }
 
@@ -275,144 +257,71 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
     // We don't early out on NOT_A_MATCH in case we find evidence for INVALID.
     Classification result = Classification.MATCH;
 
+    // An authority has the form [uname[':'[password]]'@']host[':'port]
+    if (auth.password.isPresent()) {
+      // There's a password.
+      // We don't encourage password matching in URL classifiers.
+      // Don't put passwords in URLs.
+      // Tell your friends.
+      r.note(Diagnostics.PASSWORD_PRESENT, x);
+      return Classification.INVALID;
+    }
+
     if (x.inheritsPlaceholderAuthority && !matchesAnyHost) {
       // We treat the placeholder authority specially.
       // Whitelisting example.org should not cause a URL that doesn't definitely
       // have that authority to match.
+      r.note(Diagnostics.INHERITS_PLACEHOLDER_AUTHORITY, x);
       result = Classification.NOT_A_MATCH;
     }
 
-    if (result == Classification.MATCH && !this.unameClassifier.apply(uname)) {
+    if (result == Classification.MATCH && !this.unameClassifier.apply(auth.userName)) {
+      r.note(Diagnostics.USERNAME_DOES_NOT_MATCH, x);
       result = Classification.NOT_A_MATCH;
     }
 
-    int port = -1;
-    int hostStart = at + 1;
-    int hostEnd = auth.length();
-    {
-      for (int i = hostEnd; --i >= hostStart;) {
-        char c = auth.charAt(i);
-        if ('0' <= c && c <= '9') {
-          continue;
-        }
-        if (c == ':') {
-          if (i + 1 == hostEnd) {
-            // RFC 3986 section 3.2.3 allows empty ports per
-            //     port        = *DIGIT
-            // and suggest the empty port is equivalent to the scheme default
-            //     URI producers and normalizers should omit the port component
-            //     and its ":" delimiter if port is empty or if its value would
-            //     be the same as that of the scheme's default.
-            // That is reinforced in section 6.2.3:
-            //     Likewise, an explicit ":port", for which the port is empty
-            //     or the default for the scheme, is equivalent to one where
-            //     the port and its ":" delimiter are elided and thus should
-            //     be removed by scheme-based normalization.
-          } else {
-            // We have a port.
-            port = parseDecimalUintLessThan(auth, i + 1, hostEnd, 65536);
-            if (port <= 0) {
-              // -1 means parse or bounds failure. 0 is not a valid port number.
-              // "UNIX Network Programming" by Stevens, Fenner & Rudoff says
-              //     If we specify a port number of 0, the kernel chooses
-              //     an ephemeral port when bind is called.
-              if (EXPLAIN_INVALID) {
-                System.err.println(
-                    "port out of bounds " + auth.substring(i + 1, hostEnd));
-              }
-              return Classification.INVALID;
-            }
-          }
-          hostEnd = i;
-        }
-        break;
-      }
-    }
-
-    // An empty host name as in http:/// or http://a@/ or http://:80/
-    if (at + 1 == auth.length()) {
-      if (EXPLAIN_INVALID) {
-        System.err.println("missing host");
-      }
-      return Classification.INVALID;
-    }
-
-    if (port == -1) {
-      port = x.scheme.defaultPortOrNegOne;
-    }
+    int port = auth.portOrNegOne;
     if (port != -1 && result == Classification.MATCH) {
       if (!this.portClassifier.apply(port)) {
         int pos = Arrays.binarySearch(this.allowedPortsSorted, port);
         if (pos < 0) {
+          r.note(Diagnostics.DISALLOWED_PORT, x);
           result = Classification.NOT_A_MATCH;
         }
       }
     }
 
-    String host = auth.substring(at + 1, hostEnd);
-    int hostLength = host.length();
-    if (hostLength == 0) {
-      if (EXPLAIN_INVALID) {
-        System.err.println("empty host");
-      }
+    if (!auth.host.isPresent()) {
+      r.note(Diagnostics.MISSING_HOST, x);
       return Classification.INVALID;
     }
-    Object hostValue;
-    try {
-      if (InetAddresses.isUriInetAddress(host)) {
-        hostValue = InetAddresses.forUriString(host);
-      } else {
-        Optional<String> decodedHostOpt = Percent.decode(host);
-        if (!decodedHostOpt.isPresent()) {
-          if (EXPLAIN_INVALID) {
-            System.err.println("misencoding in host " + host);
+
+    if (result == Classification.MATCH) {
+      if (!matchesAnyHost) {
+        Object hostValue = auth.host.get();
+        if (hostValue instanceof Inet6Address) {
+          Inet6Address addr = (Inet6Address) hostValue;
+          if (!ipv6Set.contains(addr)) {
+            r.note(Diagnostics.HOST_NOT_IN_APPROVED_SET, x);
+            result = Classification.NOT_A_MATCH;
           }
-          return Classification.INVALID;
-        }
-        hostValue = AuthorityClassifierBuilder
-            .toDomainName(decodedHostOpt.get());
-      }
-    } catch (@SuppressWarnings("unused") IllegalArgumentException e) {
-      if (EXPLAIN_INVALID) {
-        System.err.println("malformed host " + host);
-      }
-      return Classification.INVALID;
-    }
-
-    if (result == Classification.MATCH && !matchesAnyHost) {
-      if (hostValue instanceof Inet6Address) {
-        Inet6Address addr = (Inet6Address) hostValue;
-        if (!ipv6Set.contains(addr)) {
-          result = Classification.NOT_A_MATCH;
-        }
-      } else if (hostValue instanceof Inet4Address) {
-        Inet4Address addr = (Inet4Address) hostValue;
-        if (!ipv4Set.contains(addr)) {
-          result = Classification.NOT_A_MATCH;
-        }
-      } else {
-        InternetDomainName name = (InternetDomainName) hostValue;
-        if (!(domainNameSet.contains(name) || hostGlobMatcher.matches(name))) {
-          result = Classification.NOT_A_MATCH;
+        } else if (hostValue instanceof Inet4Address) {
+          Inet4Address addr = (Inet4Address) hostValue;
+          if (!ipv4Set.contains(addr)) {
+            r.note(Diagnostics.HOST_NOT_IN_APPROVED_SET, x);
+            result = Classification.NOT_A_MATCH;
+          }
+        } else {
+          InternetDomainName name = (InternetDomainName) hostValue;
+          if (!(domainNameSet.contains(name) || hostGlobMatcher.matches(name))) {
+            r.note(Diagnostics.HOST_NOT_IN_APPROVED_SET, x);
+            result = Classification.NOT_A_MATCH;
+          }
         }
       }
     }
 
     return result;
-  }
-
-  private static int parseDecimalUintLessThan(String s, int left, int right, int limit) {
-    int n = 0;
-    for (int i = left; i < right; ++i) {
-      char c = s.charAt(i);
-      int d = c - '0';
-      if (d < 0) { return -1; }
-      int np = n * 10 + d;
-      // Test for underflow and limit breaking.
-      if (0 > np || np >= limit) { return -1; }
-      n = np;
-    }
-    return n;
   }
 }
 

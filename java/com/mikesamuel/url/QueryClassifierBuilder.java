@@ -191,9 +191,16 @@ final class QueryClassifierImpl implements QueryClassifier {
     this.valueClassifierMap = valueClassifierMap;
   }
 
+  enum Diagnostics implements Diagnostic {
+    DISALLOWED_KEY,
+    DISALLOWED_QUERY_KEY,
+    DISALLOWED_QUERY_KEY_REPETITION,
+    DISALLOWED_QUERY_VALUE,
+    MISSING_REQUIRED_QUERY_KEY,
+  }
 
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(URLValue x, Diagnostic.Receiver<? super URLValue> r) {
     Set<String> keysSeen = new HashSet<>();
     String query = x.getQuery();
 
@@ -220,12 +227,14 @@ final class QueryClassifierImpl implements QueryClassifier {
             }
             if (result == Classification.MATCH) {
               if (!mayKeyClassifier.apply(key) && !mayKeySet.contains(key)) {
+                r.note(Diagnostics.DISALLOWED_QUERY_KEY, x);
                 result = Classification.NOT_A_MATCH;
               } else if (
                   !keysSeen.add(key)
                   && (onceKeyClassifier.apply(key)
                       || onceKeySet.contains(key))) {
                 result = Classification.NOT_A_MATCH;
+                r.note(Diagnostics.DISALLOWED_QUERY_KEY_REPETITION, x);
               } else {
                 Predicate<? super Optional<String>> p = this.valueClassifierMap.get(key);
                 if (p != null) {
@@ -234,6 +243,7 @@ final class QueryClassifierImpl implements QueryClassifier {
                       : Optional.absent();
                   if (!p.apply(value)) {
                     result = Classification.NOT_A_MATCH;
+                    r.note(Diagnostics.DISALLOWED_QUERY_VALUE, x);
                   }
                 }
               }
@@ -249,6 +259,7 @@ final class QueryClassifierImpl implements QueryClassifier {
     }
 
     if (result == Classification.MATCH && !keysSeen.containsAll(mustKeySet)) {
+      r.note(Diagnostics.MISSING_REQUIRED_QUERY_KEY, x);
       result = Classification.NOT_A_MATCH;
     }
     return result;

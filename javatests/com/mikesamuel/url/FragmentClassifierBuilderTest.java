@@ -13,7 +13,14 @@ public final class FragmentClassifierBuilderTest {
 
   private static void assertFragmentClassification(
       Classification want, String inputUrl, FragmentClassifier p) {
-    Classification got = p.apply(URLValue.from(URLContext.DEFAULT, inputUrl));
+    Diagnostic.CollectingReceiver<URLValue> receiver = Diagnostic.collecting(
+        TestUtil.STDERR_RECEIVER);
+    Classification got = p.apply(
+        URLValue.from(URLContext.DEFAULT, inputUrl),
+        receiver);
+    if (!want.equals(got)) {
+      receiver.flush();
+    }
     assertEquals(inputUrl, want, got);
   }
 
@@ -45,7 +52,9 @@ public final class FragmentClassifierBuilderTest {
                   new URLClassifier() {
 
                     @Override
-                    public Classification apply(URLValue x) {
+                    public Classification apply(
+                        URLValue x,
+                        Diagnostic.Receiver<? super URLValue> r) {
                       return Classification.MATCH;
                     }
 
@@ -82,7 +91,8 @@ public final class FragmentClassifierBuilderTest {
                   new URLClassifier() {
 
                     @Override
-                    public Classification apply(URLValue x) {
+                    public Classification apply(
+                        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
                       assertEquals(
                           "http://example.org./foo", x.urlText);
                       assertTrue(x.inheritsPlaceholderAuthority);
@@ -125,8 +135,9 @@ public final class FragmentClassifierBuilderTest {
                   new URLClassifier() {
 
                     @Override
-                    public Classification apply(URLValue x) {
-                      return x.getPath().equals("/bar/baz")
+                    public Classification apply(
+                        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+                      return x.getRawPath().equals("/bar/baz")
                           ? Classification.MATCH
                           : Classification.NOT_A_MATCH;
                     }

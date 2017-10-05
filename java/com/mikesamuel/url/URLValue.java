@@ -203,26 +203,49 @@ public final class URLValue {
     this.cornerCases = allCornerCases;
   }
 
-  private String authority;
+  private Optional<String> rawAuthority;
   /** The authority or null if none is available. */
-  public String getAuthority() {
-    if (authority == null) {
+  public String getRawAuthority() {
+    if (rawAuthority == null) {
+      rawAuthority = Optional.absent();
       if (ranges != null && ranges.authorityLeft >= 0) {
-        authority = urlText.substring(ranges.authorityLeft, ranges.authorityRight);
+        rawAuthority = Optional.of(
+            urlText.substring(ranges.authorityLeft, ranges.authorityRight));
       }
     }
-    return authority;
+    return rawAuthority.orNull();
   }
 
-  private String path;
-  /** The path or null if none is available. */
-  public String getPath() {
-    if (path == null) {
-      if (ranges != null && ranges.pathLeft >= 0) {
-        path = urlText.substring(ranges.pathLeft, ranges.pathRight);
+  private Optional<Authority> authority;
+  /** The decoded authority or null if none is available. */
+  public Authority getAuthority(Diagnostic.Receiver<? super URLValue> r) {
+    if (authority == null) {
+      authority = Optional.absent();
+      if (getRawAuthority() != null) {
+        Authority auth = Authority.decode(this, r);
+        authority = Optional.fromNullable(auth);
+        return auth;
       }
     }
-    return path;
+    if (r != Diagnostic.Receiver.NULL_RECEIVER
+        && rawAuthority.isPresent() && !authority.isPresent()) {
+      // Replay error messages.
+      Authority.decode(this, r);
+    }
+    return authority.orNull();
+  }
+
+  private Optional<String> rawPath;
+  /** The path or null if none is available. */
+  public String getRawPath() {
+    if (rawPath == null) {
+      rawPath = Optional.absent();
+      if (ranges != null && ranges.pathLeft >= 0) {
+        rawPath = Optional.of(
+            urlText.substring(ranges.pathLeft, ranges.pathRight));
+      }
+    }
+    return rawPath.orNull();
   }
 
   private String query;
@@ -271,7 +294,7 @@ public final class URLValue {
   private Optional<MediaType> mediaTypeOpt;
   /**
    * The media type for the associated content if specified in
-   * the content metadata.
+   * the content metadata, or null if not available.
    */
   public MediaType getContentMediaType() {
     if (mediaTypeOpt == null) {
@@ -285,6 +308,40 @@ public final class URLValue {
       }
     }
     return mediaTypeOpt.orNull();
+  }
+
+  private Optional<String> rawContent;
+  /**
+   * The raw content string or null if not available.
+   */
+  public String getRawContent() {
+    if (rawContent == null) {
+      rawContent = Optional.absent();
+      if (ranges.contentLeft >= 0) {
+        rawContent = Optional.of(urlText.substring(
+            ranges.contentLeft, ranges.contentRight));
+      }
+    }
+    return rawContent.orNull();
+  }
+
+  private Optional<Object> decodedContent;
+  /**
+   * The decoded content.
+   *
+   * @return A CharSequence if the content is textual,
+   *      a ByteBuffer if binary, or
+   *      null if not available.
+   */
+  public Object getDecodedContent() {
+    if (decodedContent == null) {
+      decodedContent = Optional.absent();
+      if (ranges.contentLeft >= 0) {
+        decodedContent = Optional.fromNullable(
+            scheme.decodeContent(urlText, ranges));
+      }
+    }
+    return decodedContent.orNull();
   }
 
   @Override

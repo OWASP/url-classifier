@@ -40,7 +40,8 @@ final class AnyQueryClassifier implements QueryClassifier {
   static final AnyQueryClassifier INSTANCE = new AnyQueryClassifier();
 
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
     return Classification.MATCH;
   }
 }

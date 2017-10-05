@@ -370,8 +370,9 @@ public final class URLClassifierBuilder {
     }
 
     @Override
-    public Classification apply(URLValue x) {
-      return qc.apply(x).invert();
+    public Classification apply(
+        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      return qc.apply(x, Diagnostic.Receiver.NULL_RECEIVER).invert();
     }
   }
 
@@ -403,8 +404,9 @@ public final class URLClassifierBuilder {
     }
 
     @Override
-    public Classification apply(URLValue x) {
-      return fc.apply(x).invert();
+    public Classification apply(
+        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      return fc.apply(x, Diagnostic.Receiver.NULL_RECEIVER).invert();
     }
   }
 
@@ -470,12 +472,32 @@ final class URLClassifierImpl implements URLClassifier {
     ALLOW_PATHS_THAT_REACH_ROOT_PARENT,
   }
 
+  enum Diagnostics implements Diagnostic {
+    UNTOLERATED_CORNER_CASE,
+    NULS,
+    AUTHORITY_DID_NOT_MATCH,
+    MALFORMED_PATH,
+    PATH_SIMPLIFICATION_REACHED_ROOTS_PARENT,
+    PATH_MATCHED_NEGATIVE_PATH_GLOBS,
+    PATH_DID_NOT_MATCH_PATH_GLOBS,
+    QUERY_DID_NOT_MATCH,
+    MEDIA_TYPE_DID_NOT_MATCH,
+    CONTENT_DID_NOT_MATCH,
+    FRAGMENT_DID_NOT_MATCH
+  }
+
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+    Diagnostic.CollectingReceiver<? super URLValue> cr =
+        Diagnostic.collecting(r);
+
     if (!this.toleratedCornerCaseSet.containsAll(x.cornerCases)) {
+      r.note(Diagnostics.UNTOLERATED_CORNER_CASE, x);
       return Classification.INVALID;
     }
     if (!matchesNULs && x.originalUrlText.indexOf('\0') >= 0) {
+      r.note(Diagnostics.NULS, x);
       return Classification.INVALID;
     }
 
@@ -484,49 +506,71 @@ final class URLClassifierImpl implements URLClassifier {
       return Classification.NOT_A_MATCH;
     }
     if (s.naturallyHasAuthority || x.ranges.authorityLeft >= 0) {
-      Classification c = authorityClassifier.apply(x);
+      Classification c = authorityClassifier.apply(x, cr);
       if (c != Classification.MATCH) {
+        cr.flush();
+        r.note(Diagnostics.AUTHORITY_DID_NOT_MATCH, x);
         return c;
       }
     }
-    String path = x.getPath();
+    String path = x.getRawPath();
     if (path != null) {
       Optional<String> decPathOpt = Percent.decode(path);
       if (!decPathOpt.isPresent()) {
+        r.note(Diagnostics.MALFORMED_PATH, x);
         return Classification.INVALID;
       }
       if (!allowPathsThatReachRootsParent
           && x.pathSimplificationReachedRootsParent) {
+        r.note(Diagnostics.PATH_SIMPLIFICATION_REACHED_ROOTS_PARENT, x);
         return Classification.NOT_A_MATCH;
       }
       String decPath = decPathOpt.get();
       if (negativePathPattern != null
           && negativePathPattern.matcher(decPath).matches()) {
+        r.note(Diagnostics.PATH_MATCHED_NEGATIVE_PATH_GLOBS, x);
         return Classification.NOT_A_MATCH;
       }
       if (positivePathPattern != null
           && !positivePathPattern.matcher(decPath).matches()) {
+        r.note(Diagnostics.PATH_DID_NOT_MATCH_PATH_GLOBS, x);
         return Classification.NOT_A_MATCH;
       }
     }
     if (s.naturallyHasQuery || x.ranges.queryLeft >= 0) {
-      Classification c = queryClassifier.apply(x);
+      cr.reset();
+      Classification c = queryClassifier.apply(x, cr);
       if (c != Classification.MATCH) {
+        cr.flush();
+        r.note(Diagnostics.QUERY_DID_NOT_MATCH, x);
         return c;
       }
     }
     if (mediaTypeClassifier != null && x.getContentMediaType() != null) {
-      Classification c = mediaTypeClassifier.apply(x);
+      cr.reset();
+      Classification c = mediaTypeClassifier.apply(x, cr);
       if (c != Classification.MATCH) {
+        cr.flush();
+        r.note(Diagnostics.MEDIA_TYPE_DID_NOT_MATCH, x);
         return c;
       }
     }
     if (s.naturallyEmbedsContent || x.ranges.contentLeft >= 0) {
-      Classification c = contentClassifier.apply(x);
+      cr.reset();
+      Classification c = contentClassifier.apply(x, cr);
       if (c != Classification.MATCH) {
+        cr.flush();
+        r.note(Diagnostics.CONTENT_DID_NOT_MATCH, x);
         return c;
       }
     }
-    return fragmentClassifier.apply(x);
+
+    cr.reset();
+    Classification c = fragmentClassifier.apply(x, r);
+    if (c != Classification.MATCH) {
+      cr.flush();
+      r.note(Diagnostics.FRAGMENT_DID_NOT_MATCH, x);
+    }
+    return c;
   }
 }

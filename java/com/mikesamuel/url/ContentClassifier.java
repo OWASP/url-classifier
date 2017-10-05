@@ -44,7 +44,8 @@ final class AnyContentClassifier implements ContentClassifier {
   static final AnyContentClassifier INSTANCE = new AnyContentClassifier();
 
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
     return Classification.MATCH;
   }
 }

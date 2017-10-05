@@ -45,7 +45,8 @@ final class AnyAuthorityClassifier implements AuthorityClassifier {
   static final AnyAuthorityClassifier INSTANCE = new AnyAuthorityClassifier();
 
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
     return Classification.MATCH;
   }
 }

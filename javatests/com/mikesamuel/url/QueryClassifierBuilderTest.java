@@ -17,32 +17,44 @@ public class QueryClassifierBuilderTest {
       QueryClassifier p,
       URLContext context,
       String... shouldMatch) {
+
+    Diagnostic.CollectingReceiver<URLValue> cr = Diagnostic.collecting(
+        TestUtil.STDERR_RECEIVER);
+
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
 
-    for (int i = 0; i < MAY_MATCH.size(); ++i) {
-      String url = MAY_MATCH.get(i);
-      assertEquals(
-          i + ": " + url,
+    try {
+      for (int i = 0; i < MAY_MATCH.size(); ++i) {
+        cr.reset();
+        String url = MAY_MATCH.get(i);
+        assertEquals(
+            i + ": " + url,
 
-          matchSet.contains(url)
-          ? Classification.MATCH
-          : Classification.NOT_A_MATCH,
+            matchSet.contains(url)
+            ? Classification.MATCH
+            : Classification.NOT_A_MATCH,
 
-          p.apply(URLValue.from(context, url)));
-    }
+            p.apply(URLValue.from(context, url), cr));
+      }
 
-    for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
-      String url = MUST_BE_INVALID.get(i);
-      assertEquals(
-          i + ": " + url,
-          Classification.INVALID,
-          p.apply(URLValue.from(context, url)));
-    }
-    for (String url : matchSet) {
-      assertEquals(
-          url,
-          Classification.MATCH,
-          p.apply(URLValue.from(context, url)));
+      for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
+        cr.reset();
+        String url = MUST_BE_INVALID.get(i);
+        assertEquals(
+            i + ": " + url,
+            Classification.INVALID,
+            p.apply(URLValue.from(context, url), cr));
+      }
+      for (String url : matchSet) {
+        cr.reset();
+        assertEquals(
+            url,
+            Classification.MATCH,
+            p.apply(URLValue.from(context, url), cr));
+      }
+      cr.reset();
+    } finally {
+      cr.flush();
     }
   }
 

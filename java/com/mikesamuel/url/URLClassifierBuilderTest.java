@@ -72,14 +72,24 @@ public final class URLClassifierBuilderTest {
     }
 
     void run() {
-      for (URLValue x : expectInvalid.build()) {
-        assertEquals(debug(x), Classification.INVALID, c.apply(x));
-      }
-      for (URLValue x : expectMatches.build()) {
-        assertEquals(debug(x), Classification.MATCH, c.apply(x));
-      }
-      for (URLValue x : expectDoesNotMatch.build()) {
-        assertEquals(debug(x), Classification.NOT_A_MATCH, c.apply(x));
+      Diagnostic.CollectingReceiver<URLValue> cr = Diagnostic.collecting(
+          TestUtil.STDERR_RECEIVER);
+      try {
+        for (URLValue x : expectInvalid.build()) {
+          cr.reset();
+          assertEquals(debug(x), Classification.INVALID, c.apply(x, cr));
+        }
+        for (URLValue x : expectMatches.build()) {
+          cr.reset();
+          assertEquals(debug(x), Classification.MATCH, c.apply(x, cr));
+        }
+        for (URLValue x : expectDoesNotMatch.build()) {
+          cr.reset();
+          assertEquals(debug(x), Classification.NOT_A_MATCH, c.apply(x, cr));
+        }
+        cr.reset();
+      } finally {
+        cr.flush();
       }
     }
   }
@@ -262,6 +272,38 @@ public final class URLClassifierBuilderTest {
 
   @Test
   public final void testQueryClassifying() {
+    new TestBuilder(
+        URLClassifier.builder()
+            .matchesSchemes(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
+            .matchesData(MediaTypeClassifier.any())  // Data don't naturally have queries
+            .matchesQuery(QueryClassifier.builder()
+                .mayHaveKeys("a", "b", "c")
+                .mustHaveKeys("x")
+                .build())
+            .build())
+        .useContext("about:invalid")  // Admits query but scheme not whitelisted
+        .expectMatches(
+            "http://foo/?x=1&a=b",
+            "http://foo/?a=b&x",
+            "mailto:foo@example.com?x",
+            // This is not actually a query, so the fact that
+            // mayHaveKeys("d") was not specified doesn't matter.
+            // We also don't require query classifiers to match when
+            // the scheme doesn't allow a query.
+            "data:text/plain,?d=v"
+            )
+        .expectDoesNotMatch(
+            "",
+            "http://foo/",
+            "http://foo/?x&d",
+            "mailto:foo@example.com",
+            "mailto:foo@example.com?d"
+            )
+        .run();
+  }
+
+  @Test
+  public final void testFragment() {
     new TestBuilder(
         URLClassifier.builder()
             .matchesSchemes(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)

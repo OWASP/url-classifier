@@ -42,7 +42,8 @@ final class AnyFragmentClassifier implements FragmentClassifier {
   static final AnyFragmentClassifier INSTANCE = new AnyFragmentClassifier();
 
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
     return Classification.MATCH;
   }
 }

@@ -7,11 +7,15 @@ import com.google.common.collect.ImmutableList;
 /**
  * A classifier over URL inputs.
  */
-public interface URLClassifier extends Function<URLValue, Classification> {
+public interface URLClassifier {
 
-  /** Classifies the URL as matching, not matching or structurally invalid. */
-  @Override
-  public Classification apply(URLValue x);
+  /**
+   * Classifies the URL as matching, not matching or structurally invalid.
+   *
+   * @param x the URL to classify.
+   * @param r receives any notifications about why x did not match or was invalid.
+   */
+  public Classification apply(URLValue x, Diagnostic.Receiver<? super URLValue> r);
 
   /** A new blank builder. */
   public static URLClassifierBuilder builder() {
@@ -60,22 +64,25 @@ class URLClassifierOr<C extends URLClassifier> implements URLClassifier {
   }
 
   @Override
-  public Classification apply(URLValue x) {
-    Classification result = Classification.MATCH;
-    for (C c : cs) {
-      Classification cl = c.apply(x);
-      switch (cl) {
-        case INVALID:
-          result = Classification.INVALID;
-          continue;
-        case MATCH:
-          return Classification.MATCH;
-        case NOT_A_MATCH:
-          continue;
+  public Classification apply(URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+    if (!cs.isEmpty()) {
+      Diagnostic.CollectingReceiver<? super URLValue> delayedR = Diagnostic.collecting(r);
+      for (C c : cs) {
+        Classification cl = c.apply(x, delayedR);
+        switch (cl) {
+          case INVALID:
+            delayedR.flush();
+            return Classification.INVALID;
+          case MATCH:
+            return Classification.MATCH;
+          case NOT_A_MATCH:
+            continue;
+        }
+        throw new AssertionError(c);
       }
-      throw new AssertionError(c);
+      delayedR.flush();
     }
-    return result;
+    return Classification.NOT_A_MATCH;
   }
 
   @SuppressWarnings("unchecked")

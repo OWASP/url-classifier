@@ -182,7 +182,7 @@ public final class URLValueTest {
 
     u = URLValue.from(flippingContext, "file:\\C|\\foo\\bar");
     assertEquals("file:/C|/foo/bar", u.urlText);
-    assertEquals("/C|/foo/bar", u.getPath());
+    assertEquals("/C|/foo/bar", u.getRawPath());
     assertEquals(
         u.toString(),
         ImmutableSet.of(URLValue.URLSpecCornerCase.FLIPPED_SLASHES),

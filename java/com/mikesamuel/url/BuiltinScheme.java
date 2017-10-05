@@ -1,5 +1,6 @@
 package com.mikesamuel.url;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Base64;
 
@@ -153,7 +154,10 @@ public final class BuiltinScheme {
                        IllegalArgumentException ex) {
                 return Optional.absent();
               }
-              return Optional.of(bytes);
+              // TODO: if the media type has a charset should we decode
+              // the bytes back to a string using that charset?
+              return Optional.of(
+                  ByteBuffer.wrap(bytes).asReadOnlyBuffer());
             }
           }
         }

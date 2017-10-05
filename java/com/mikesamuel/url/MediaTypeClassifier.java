@@ -41,7 +41,8 @@ final class AnyMediaTypeClassifier implements MediaTypeClassifier {
   static final AnyMediaTypeClassifier INSTANCE = new AnyMediaTypeClassifier();
 
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
     return Classification.MATCH;
   }
 }

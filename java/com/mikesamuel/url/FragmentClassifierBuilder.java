@@ -84,7 +84,8 @@ final class FragmentClassifierImpl implements FragmentClassifier {
   }
 
   @Override
-  public Classification apply(URLValue x) {
+  public Classification apply(
+      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
     String fragment = x.getFragment();
     Classification result = Classification.NOT_A_MATCH;
     Optional<String> fragmentOpt = Optional.fromNullable(fragment);
@@ -98,7 +99,7 @@ final class FragmentClassifierImpl implements FragmentClassifier {
       URLValue fragmentUrl = URLValue.from(
           // Explicitly do not use x's path.
           URLContext.DEFAULT, fragment.substring(1));
-      switch (this.asRelativeUrlClassifier.apply(fragmentUrl)) {
+      switch (this.asRelativeUrlClassifier.apply(fragmentUrl, r)) {
         case INVALID:
           return Classification.INVALID;
         case MATCH:
