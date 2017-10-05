@@ -10,7 +10,9 @@ import com.google.common.net.InternetDomainName;
 
 
 /**
- * The authority component of a URL.
+ * The authority component of a URL: <tt>http://<b>example.com</b>/</tt>.
+ * <p>
+ * It has the general form [user[':'password]'@']host[':'port].
  */
 public final class Authority {
   /** The username component of the userinfo. */
@@ -173,9 +175,7 @@ public final class Authority {
     return n;
   }
 
-  /** */
-  @SuppressWarnings("javadoc")
-  public enum Diagnostics implements Diagnostic {
+  enum Diagnostics implements Diagnostic {
     MALFORMED_PASSWORD,
     MALFORMED_USERNAME,
     PORT_OUT_OF_RANGE,

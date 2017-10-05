@@ -25,7 +25,7 @@ public final class AuthorityClassifierBuilderTest {
 
     try {
       for (int i = 0; i < MAY_MATCH.size(); ++i) {
-        cr.reset();
+        cr.clear();
         String url = MAY_MATCH.get(i);
         URLValue inp = URLValue.from(context, url);
         assertEquals(
@@ -39,7 +39,7 @@ public final class AuthorityClassifierBuilderTest {
       }
 
       for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
-        cr.reset();
+        cr.clear();
         String url = MUST_BE_INVALID.get(i);
         URLValue inp = URLValue.from(context, url);
         assertEquals(
@@ -48,13 +48,13 @@ public final class AuthorityClassifierBuilderTest {
             p.apply(inp, cr));
       }
       for (String url : matchSet) {
-        cr.reset();
+        cr.clear();
         assertEquals(
             url,
             Classification.MATCH,
             p.apply(URLValue.from(context, url), cr));
       }
-      cr.reset();
+      cr.clear();
     } finally {
       cr.flush();
     }
@@ -138,7 +138,7 @@ public final class AuthorityClassifierBuilderTest {
   public void testAllowLocalhost() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder()
-           .matchesHosts("localhost")
+           .host("localhost")
            .build(),
         URLContext.DEFAULT,
         "http://localhost/",
@@ -146,7 +146,7 @@ public final class AuthorityClassifierBuilderTest {
         "http://localhos%74/");
     runCommonTestsWith(
         AuthorityClassifier.builder()
-           .matchesHostGlob("localhost")
+           .hostGlob("localhost")
            .build(),
         URLContext.DEFAULT,
         "http://localhost/",
@@ -158,7 +158,7 @@ public final class AuthorityClassifierBuilderTest {
   public void testPunycodeUnicodeEquivalence() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder()
-           .matchesHosts("xn--fsq")  // Mandarin for "example"
+           .host("xn--fsq")  // Mandarin for "example"
            .build(),
         URLContext.DEFAULT,
         "https://\u4f8b/\ud83d\ude00#",
@@ -170,8 +170,8 @@ public final class AuthorityClassifierBuilderTest {
   public void testSingleIntegerPortExclusion() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder()
-           .matchesHosts("example", "example.com")
-           .matchesPort(443)
+           .host("example", "example.com")
+           .port(443)
            .build(),
         URLContext.DEFAULT,
         "htTpS://example/",
@@ -183,8 +183,8 @@ public final class AuthorityClassifierBuilderTest {
   public void testMultipleIntegerPortExclusionsOutOfOrder() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder()
-           .matchesHosts("example", "example.com")
-           .matchesPort(443, 80)
+           .host("example", "example.com")
+           .port(443, 80)
            .build(),
         URLContext.DEFAULT,
         "http://example/",
@@ -200,8 +200,8 @@ public final class AuthorityClassifierBuilderTest {
   public void testSinglePortClassifier() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder()
-           .matchesHosts("example", "example.com")
-           .matchesPort(
+           .host("example", "example.com")
+           .port(
                new Predicate<Integer>() {
 
                 @Override
@@ -221,9 +221,9 @@ public final class AuthorityClassifierBuilderTest {
   public void testMultiplePortExclusion() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder()
-           .matchesHosts("example", "example.com")
-           .matchesPort(443)
-           .matchesPort(new Predicate<Integer>() {
+           .host("example", "example.com")
+           .port(443)
+           .port(new Predicate<Integer>() {
 
             @Override
             public boolean apply(Integer port) {
@@ -246,8 +246,8 @@ public final class AuthorityClassifierBuilderTest {
   public void testUnameClassifiersAndCustomScheme() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder()
-            .matchesHosts("server")
-            .matchesUserName(
+            .host("server")
+            .userName(
                 new Predicate<Optional<String>>() {
 
                   @Override
@@ -275,8 +275,8 @@ public final class AuthorityClassifierBuilderTest {
     // if it's used standalone.
     runCommonTestsWith(
         AuthorityClassifier.builder()
-            .matchesHosts("server")
-            .matchesUserName(
+            .host("server")
+            .userName(
                 new Predicate<Optional<String>>() {
 
                   @Override

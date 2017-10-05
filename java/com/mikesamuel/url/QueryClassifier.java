@@ -3,7 +3,9 @@ package com.mikesamuel.url;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
-/** A URLClassifier that considers only the query portion. */
+/**
+ * A URLClassifier that considers the query: <tt>http://example.com/<b>?key=value</b></tt>.
+ */
 public interface QueryClassifier extends URLClassifier {
 
   /** A new blank builder. */
@@ -14,6 +16,9 @@ public interface QueryClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static QueryClassifier or(QueryClassifier... cs) {
     return or(ImmutableList.copyOf(cs));
@@ -22,6 +27,9 @@ public interface QueryClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static QueryClassifier or(Iterable<? extends QueryClassifier> cs) {
     return URLClassifierOr.<QueryClassifier>abstractOr(

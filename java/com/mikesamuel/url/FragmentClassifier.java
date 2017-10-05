@@ -5,7 +5,12 @@ import java.util.Arrays;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
-/** A URLClassifier that considers only the fragment portion. */
+/**
+ * A URLClassifier that considers the fragment: <tt>http://example.com/<b>#fragment</b></tt>.
+ *
+ * <p>This may be used in a larger {@link URLClassifier} via
+ * {@link URLClassifierBuilder#fragment}.
+ */
 public interface FragmentClassifier extends URLClassifier {
 
   /** A new blank builder. */
@@ -16,6 +21,9 @@ public interface FragmentClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static FragmentClassifier or(FragmentClassifier... cs) {
     return or(Arrays.asList(cs));
@@ -24,6 +32,9 @@ public interface FragmentClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static FragmentClassifier or(Iterable<? extends FragmentClassifier> cs) {
     return URLClassifierOr.<FragmentClassifier>abstractOr(

@@ -48,8 +48,13 @@ public final class Absolutizer {
   }
 
 
-  /** Evaluates a URL reference in the context of an absolute URL. */
-  public Result absolutize(String refUrlText) {
+  /**
+   * Evaluates a URL reference in the context of an absolute URL.
+   *
+   * @param refUrlText The URL to absolutize.
+   * @return A bundle of information gleaned from the absolutizing process.
+   */
+  Result absolutize(String refUrlText) {
     int eos = endOfScheme(refUrlText);
     boolean pathSimplificationReachedRootsParent = false;
     EnumSet<URLValue.URLSpecCornerCase> cornerCases = EnumSet.noneOf(

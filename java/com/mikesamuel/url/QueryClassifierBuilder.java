@@ -22,6 +22,8 @@ import com.google.common.collect.Maps;
  *
  * <p>For example, the query "{@code ?a=b%20c&a=d&e}" specifies the
  * key value pairs {@code [("a", "b c"), ("a", "d"), ("e", absent)]}.
+ *
+ * @see QueryClassifier#builder
  */
 public final class QueryClassifierBuilder {
   private ImmutableSet.Builder<String> mayKeys = ImmutableSet.builder();

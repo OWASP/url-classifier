@@ -5,27 +5,32 @@ import java.util.List;
 import com.google.common.collect.Lists;
 
 /**
- * A diagnostic method that explains why something failed.
+ * A message typically used to explain why a URLClassifier didn't match its input.
  */
 public interface Diagnostic {
 
   /**
-   * A receiver of dianostic messages that may hook into a log.
+   * A receiver of diagnostic messages; may hook into a logger.
    * <p>
    * Implementations may assume that only one thread is using a receiver
    * at a time.
+   *
+   * @param <T> The type of the context value passed to {@link Receiver#note}.
    */
   public interface Receiver<T> {
 
     /**
      * Is called when a classification operation fails in a noteworthy way.
+     *
+     * @param d A diagnostic message.
+     * @param context a value associated with the failure.
      */
     public void note(Diagnostic d, T context);
 
     /**
      * A receiver that does nothing when notified.
      */
-    public static final Receiver<Object> NULL_RECEIVER = NullReceiver.INSTANCE;
+    public static final Receiver<Object> NULL = NullReceiver.INSTANCE;
   }
 
 
@@ -39,14 +44,14 @@ public interface Diagnostic {
     /**
      * Clears the queue of notifications.
      */
-    public abstract void reset();
+    public abstract void clear();
 
     /**
      * Replays collected notifications to the underlying receiver in order.
      */
     public abstract void replay();
 
-    /** Replay then reset. */
+    /** Replay then clear. */
     public abstract void flush();
   }
 
@@ -56,6 +61,8 @@ public interface Diagnostic {
    * operation fails.
    *
    * @param r the underlying receiver to notify when flushing.
+   * @param <T> The type of the context value passed to {@link Receiver#note}.
+   * @return a receiver that will collect diagnostics until replayed onto r.
    */
   @SuppressWarnings("unchecked")
   public static <T> CollectingReceiver<T> collecting(Receiver<T> r) {
@@ -92,7 +99,7 @@ final class NullReceiver extends Diagnostic.CollectingReceiver<Object> {
   }
 
   @Override
-  public void reset() {
+  public void clear() {
     // This block left intentionally blank.
   }
 
@@ -132,7 +139,7 @@ final class CollectingReceiverImpl<T> extends Diagnostic.CollectingReceiver<T> {
   }
 
   @Override
-  public void reset() {
+  public void clear() {
     if (diagnosticsAndContexts != null) {
       diagnosticsAndContexts.clear();
     }

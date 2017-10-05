@@ -25,7 +25,7 @@ public class QueryClassifierBuilderTest {
 
     try {
       for (int i = 0; i < MAY_MATCH.size(); ++i) {
-        cr.reset();
+        cr.clear();
         String url = MAY_MATCH.get(i);
         assertEquals(
             i + ": " + url,
@@ -38,7 +38,7 @@ public class QueryClassifierBuilderTest {
       }
 
       for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
-        cr.reset();
+        cr.clear();
         String url = MUST_BE_INVALID.get(i);
         assertEquals(
             i + ": " + url,
@@ -46,13 +46,13 @@ public class QueryClassifierBuilderTest {
             p.apply(URLValue.from(context, url), cr));
       }
       for (String url : matchSet) {
-        cr.reset();
+        cr.clear();
         assertEquals(
             url,
             Classification.MATCH,
             p.apply(URLValue.from(context, url), cr));
       }
-      cr.reset();
+      cr.clear();
     } finally {
       cr.flush();
     }

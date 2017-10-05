@@ -24,7 +24,9 @@ import com.google.common.net.InetAddresses;
 import com.google.common.net.InternetDomainName;
 
 /**
- * Builds a classifier over username:password@hostname:port style authorities.
+ * Builder for {@link AuthorityClassifier}s.
+ *
+ * @see AuthorityClassifier#builder
  */
 public final class AuthorityClassifierBuilder {
   private final ImmutableSet.Builder<Inet4Address> ipv4s = ImmutableSet.builder();
@@ -96,7 +98,7 @@ public final class AuthorityClassifierBuilder {
    * Accepts hostnames or numeric IPAs.
    * IPv6 addresses should be in square brackets.
    */
-  public AuthorityClassifierBuilder matchesHosts(String... hosts) {
+  public AuthorityClassifierBuilder host(String... hosts) {
     for (String host : hosts) {
       int len = host.length();
       Preconditions.checkArgument(len > 0, "Empty string passed as hostname");
@@ -113,42 +115,42 @@ public final class AuthorityClassifierBuilder {
     }
     return this;
   }
-  /** @see #matchesHosts(String...) */
-  public AuthorityClassifierBuilder matchesHosts(InternetDomainName... addresses) {
+  /** @see #host(String...) */
+  public AuthorityClassifierBuilder host(InternetDomainName... addresses) {
     domainNames.addAll(Arrays.asList(addresses));
     return this;
   }
-  /** @see #matchesHosts(String...) */
-  public AuthorityClassifierBuilder matchesHosts(Inet4Address... addresses) {
+  /** @see #host(String...) */
+  public AuthorityClassifierBuilder host(Inet4Address... addresses) {
     ipv4s.addAll(Arrays.asList(addresses));
     return this;
   }
-  /** @see #matchesHosts(String...) */
-  public AuthorityClassifierBuilder matchesHosts(Inet6Address... addresses) {
+  /** @see #host(String...) */
+  public AuthorityClassifierBuilder host(Inet6Address... addresses) {
     ipv6s.addAll(Arrays.asList(addresses));
     return this;
   }
-  /** @see #matchesHostGlob(Iterable) */
-  public AuthorityClassifierBuilder matchesHostGlob(String... globs) {
-    return matchesHostGlob(Arrays.asList(globs));
+  /** @see #hostGlob(Iterable) */
+  public AuthorityClassifierBuilder hostGlob(String... globs) {
+    return hostGlob(Arrays.asList(globs));
   }
   /**
-   * matchesHostGlob("**.example.com") matches any subdomain of example.com
+   * hostGlob("**.example.com") matches any subdomain of example.com
    * including example.com.
    * <p>
-   * matchesHostGlob("*.example.com") matches foo.example.com but neither
+   * hostGlob("*.example.com") matches foo.example.com but neither
    * foo.bar.example.com nor example.com.
    * <p>
-   * matchesHostGlob("example.*") matches "example." followed by any entry on
+   * hostGlob("example.*") matches "example." followed by any entry on
    * <a href="http://publicsuffix.org/">Mozilla's public suffix list</a> so will
    * match "example.com", "example.org", and "example.co.uk".
    * <p>
-   * matchesHostGlob("**") matches any valid host including numeric IPAs.
+   * hostGlob("**") matches any valid host including numeric IPAs.
    * <p>
    * One of "**." and "*." may appear at the beginning and ".*" may appear at the end
-   * but otherwise, "*" may not appear in a hostname glob.
+   * but otherwise, "*" may not appear in a host glob.
    */
-  public AuthorityClassifierBuilder matchesHostGlob(
+  public AuthorityClassifierBuilder hostGlob(
       Iterable<? extends String> globs) {
     for (String glob : globs) {
       // Treat as a proper hostname.
@@ -169,7 +171,7 @@ public final class AuthorityClassifierBuilder {
    * but not https://example.com/ and https://example.com:80/ but not
    * https://example.com:10000/
    */
-  public AuthorityClassifierBuilder matchesPort(
+  public AuthorityClassifierBuilder port(
       Predicate<? super Integer> portIsAllowed) {
     Preconditions.checkNotNull(portIsAllowed);
     if (allowedPortClassifier == null) {
@@ -180,8 +182,8 @@ public final class AuthorityClassifierBuilder {
     }
     return this;
   }
-  /** @see #matchesPort(Predicate) */
-  public AuthorityClassifierBuilder matchesPort(int... ports) {
+  /** @see #port(Predicate) */
+  public AuthorityClassifierBuilder port(int... ports) {
     for (int port : ports) {
       allowedPorts.add(port);
     }
@@ -193,7 +195,7 @@ public final class AuthorityClassifierBuilder {
    * URL with userinfo will match, so
    * http://@example.com/ will not match.
    */
-  public AuthorityClassifierBuilder matchesUserName(
+  public AuthorityClassifierBuilder userName(
       Predicate<? super Optional<String>> unameIsAllowed) {
     Preconditions.checkNotNull(unameIsAllowed);
     if (this.allowedUnameClassifier == null) {
@@ -205,6 +207,7 @@ public final class AuthorityClassifierBuilder {
     return this;
   }
 }
+
 
 final class AuthorityClassifierImpl implements AuthorityClassifier {
 

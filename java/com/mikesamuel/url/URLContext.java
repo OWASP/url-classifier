@@ -3,9 +3,7 @@ package com.mikesamuel.url;
 import com.google.common.base.Preconditions;
 
 /**
- * Encapsulates the context in which a URL is interpreted.
- * <p>
- * This includes corner cases about
+ * The context in which a URL is encountered.
  */
 public final class URLContext {
   /** A base URL against which relative URLs will be resolved. */

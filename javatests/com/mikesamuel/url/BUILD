@@ -9,8 +9,10 @@ java_library(
         include=["*.java"],
         exclude=["*Test.java"],
     ),
-    runtime_deps = [
+    deps = [
         "//java/com/mikesamuel/url",
+    ],
+    runtime_deps = [
         "@com_google_guava_guava//jar",
         "@junit//jar",
     ],

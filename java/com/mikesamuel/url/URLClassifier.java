@@ -5,7 +5,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /**
- * A classifier over URL inputs.
+ * Classifies {@linkplain URLValue URLs} as
+ * {@linkplain Classification matching, not matching, or invalid}.
  */
 public interface URLClassifier {
 
@@ -14,6 +15,8 @@ public interface URLClassifier {
    *
    * @param x the URL to classify.
    * @param r receives any notifications about why x did not match or was invalid.
+   *     Pass {@link Diagnostic.Receiver#NULL} if you only need the result.
+   * @return the classification of x
    */
   public Classification apply(URLValue x, Diagnostic.Receiver<? super URLValue> r);
 
@@ -25,6 +28,9 @@ public interface URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static URLClassifier or(URLClassifier... cs) {
     return or(ImmutableList.copyOf(cs));
@@ -33,6 +39,9 @@ public interface URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static URLClassifier or(Iterable<? extends URLClassifier> cs) {
     return URLClassifierOr.<URLClassifier>abstractOr(

@@ -6,12 +6,17 @@ import com.google.common.collect.ImmutableList;
 /**
  * A URL classifier that checks the content and content-metadata portions
  * of a non-hierarchical URL.
+ *
+ * @see URLValue#getDecodedContent()
  */
 public interface ContentClassifier extends URLClassifier {
 
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static ContentClassifier or(ContentClassifier... cs) {
     return or(ImmutableList.copyOf(cs));
@@ -20,6 +25,9 @@ public interface ContentClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static ContentClassifier or(Iterable<? extends ContentClassifier> cs) {
     return URLClassifierOr.abstractOr(
@@ -34,7 +42,9 @@ public interface ContentClassifier extends URLClassifier {
         });
   }
 
-  /** A classifier that matches all inputs. */
+  /**
+   * A classifier that matches all inputs.
+   */
   public static ContentClassifier any() {
     return AnyContentClassifier.INSTANCE;
   }

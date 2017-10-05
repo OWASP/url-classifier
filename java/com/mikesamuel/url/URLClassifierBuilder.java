@@ -15,57 +15,66 @@ import com.google.common.collect.Sets;
  * together.
  * Classifiers of one kind AND with classifiers of another kind except
  * where stated below.
- * For example,
+ *
+ * <p>For example,
  * <pre>
- *    .matchesSchemes(HTTP, HTTPS)
- *    .matchesSchemes(FILE)
- *    .matchesHosts("example.com")
- *    .matchesPathGlobs("/foo/**")
- *    .matchesPathGlobs("/*.js")
+ *    .scheme(HTTP, HTTPS)
+ *    .scheme(FILE)
+ *    .host("example.com")
+ *    .pathGlob("/foo/**")
+ *    .pathGlob("/*.js")
  * </pre>
  * corresponds to pseudocode like
  * <pre>
  * ((url.scheme in (HTTP, HTTPS))
  *    or (url.scheme is FILE))
- * and (not url.scheme.naturallyHasAuthority
+ * and (not (url.has_authority or url.scheme.naturallyHasAuthority)
  *      or url.authority == "example.com")
- * and (not url.scheme.naturallyHasPath
+ * and (not (url.has_path or url.scheme.naturallyHasPath)
  *      or glob("/foo/**").matches(url.path)
  *      or glob("/*.js").matches(url.path))
  * </pre>
  *
  * <p>If a URL's scheme does not naturally have an authority,
- * then it MUST not have an authority and any authority classifier
+ * and it does not have an authority then any authority classifier
  * is ignored.
- * For example, `file:` URLs and `data:` URLs do not naturally
- * have an authority.  `file:` by the nature of the scheme, and
- * `data:` because it is not a hierarchical scheme.
+ * For example, {@code file:} URLs and {@code data:} URLs do not naturally
+ * have an authority, though they may.
+ * {@code file:} by the nature of the scheme, and
+ * {@code data:} because it is not a hierarchical scheme.
+ * Any authority classifier will be ignored for "{@code data:text/plain,}"
+ * and for "{@code file:///}" but not for "{@code file://example.com/}".
  *
  * <p>If a URL's scheme naturally has an authority then it MUST have an
  * authority and any authority classifier must also pass.
- * For example: `http:///` will never pass any classifier.
+ * For example: "{@code http:///}" will never pass any classifier.
  * <a href="https://w3c.github.io/FileAPI/#DefinitionOfScheme">Blobs</a>
  * naturally have an authority.
  *
  * <p>If a URL's scheme does not naturally have a path or query component
  * then path and query classifiers will not be applied.
- * All hierarchical URLs naturally have both, so a `file:` URL MUST match
- * any query classifiers.
+ * All hierarchical URLs naturally have both, so a {@code file:} URL MUST
+ * match any query classifiers.  Some opaque schemes also do, so any
+ * query classifier will be applied to
+ * "{@code mailto:name@domain.tld?subject=Hello+World}".
  *
  * <p>All URLs are treated as URI References, so fragments are allowed
  * regardless of scheme.
  *
  * <p>If a URL's scheme does not naturally have embedded content then
- * any content classifier is ignored.  For example, `http:` and other
- * hierarchical URLs do not have embedded content.
+ * any content classifier is ignored.  For example, "{@code http:}" and
+ * other hierarchical URLs do not have embedded content.
  *
  * <p>If a URL's scheme does naturally have embedded content, then it
  * MUST have embedded content and any content classifier must match
- * that content.  For example: `data:text/plain;base64` will not match
- * any classifier but `data:text/plain,` will match if the content
+ * that content.  For example: "{@code data:text/plain;base64}
+ * (note the missing '{@code ,}' will not match any classifier) but
+ * "{@code data:text/plain,}" will match if the content
  * classifier matches the empty string.  Schemes that naturally have
- * embedded content include `about:`, `blob:`, `data:`, and
- * `javascript:`.
+ * embedded content include "{@code about:}", "{@code blob:}", "{@code data:}", and
+ * "{@code javascript:}".
+ *
+ * @see URLClassifier#builder
  */
 public final class URLClassifierBuilder {
   URLClassifierBuilder() {
@@ -76,6 +85,7 @@ public final class URLClassifierBuilder {
    * Builds a classifier based on previous allow/match decisions.
    * This may be reused after a call to build and subsequent calls to
    * allow/match methods will not affect previously built classifiers.
+   * @return this
    */
   public URLClassifier build() {
     EnumSet<URLClassifierImpl.GlobalFlag> flags =
@@ -99,10 +109,10 @@ public final class URLClassifierBuilder {
     ImmutableSet<String> negativePathGlobSet = negativePathGlobs.build();
     Pattern positivePathPattern = positivePathGlobSet.isEmpty()
         ? null
-        : pathGlobsToPattern(positivePathGlobSet);
+        : PathGlobs.toPattern(positivePathGlobSet);
     Pattern negativePathPattern = negativePathGlobSet.isEmpty()
         ? null
-        : pathGlobsToPattern(negativePathGlobSet);
+        : PathGlobs.toPattern(negativePathGlobSet);
     QueryClassifier qc = queryClassifier != null
         ? queryClassifier
         : QueryClassifier.any();
@@ -127,71 +137,6 @@ public final class URLClassifierBuilder {
         );
   }
 
-  private static Pattern pathGlobsToPattern(Iterable<? extends String> globs) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("^(?:");
-    boolean wroteOne = false;
-    for (String glob : globs) {
-      if (wroteOne) {
-        sb.append('|');
-      }
-      wroteOne = true;
-
-      // Split the glob so that all "*" and "**" segments appear at the front
-      // of tokens and any trailing /? appears by itself.
-      int written = 0;
-      int n = glob.length();
-      for (int i = 0; i <= n; ++i) {
-        String sub = null;
-        int nMatched = 0;
-        if (i == n) {
-          sub = "";  // Forces write of last region
-          nMatched = 1;
-        } else if ("/**/".regionMatches(0, glob, i, 4)) {
-          nMatched = 4;
-          // /**/ should match /
-          sub = "/(?:.*/)?";
-        } else if ("/**".regionMatches(0, glob, i, 3) && i + 3 == n) {
-          nMatched = 3;
-          sub = "/.*\\z";
-        } else if ("**".regionMatches(0, glob, i, 2)) {
-          nMatched = 2;
-          sub = ".*";
-        } else if (glob.charAt(i) == '*') {
-          nMatched = 1;
-          sub = "[^/]*";
-        } else if (i + 2 == n && "/?".regionMatches(0, glob, i, 2)) {
-          nMatched = 2;
-          sub = "/?";
-        }
-        if (sub != null) {
-          if (i != written) {
-            String globPart = glob.substring(written, i);
-            Optional<String> decodedPart = Percent.decode(globPart);
-            if (decodedPart.isPresent()) {
-              sb.append(Pattern.quote(decodedPart.get()));
-            } else {
-              // We check when adding a glob that it decodes properly
-              // so this should not occur.
-              throw new AssertionError(globPart);
-            }
-          }
-          sb.append(sub);
-          written = i + nMatched;
-          i = written - 1;
-        }
-      }
-    }
-    if (!wroteOne) {
-      // We are joining using | but if there's no operands we
-      // should fail to match per the usual semantics of
-      // zero-arity OR.
-      sb.append("(?!)");
-    }
-    sb.append(")\\z");
-//    System.err.println(Arrays.asList(globs) + " => " + sb);
-    return Pattern.compile(sb.toString());
-  }
 
   //// Flags that affect multiple sub-classifiers.
   private boolean matchesNULs = false;
@@ -201,40 +146,57 @@ public final class URLClassifierBuilder {
 
   /**
    * URLs with NULs are a common problem case.
-   * By default they are not matched.
-   * blob and data URLs that need to embed NULs in content typically
-   * base64 encode and NULs in decoded will not cause a mismatch.
+   * By default no URL is matched that contains the raw char 0.
+   * {@code data:} URLs that need to embed NULs
+   * in content typically base64 encode and NULs in encoded content will
+   * not cause a mismatch.
    * If allowing NULs is definitely required enable this.
+   *
+   * @param allow true to allow NULs.
+   * @return this
    */
-  public URLClassifierBuilder matchesNULs(boolean allow) {
+  public URLClassifierBuilder nuls(boolean allow) {
     this.matchesNULs = allow;
     return this;
   }
 
   /**
-   * If not enabled (the default), apply(x) will return INVALID when
-   * x.{@link URLValue#pathSimplificationReachedRootsParent pathSimplificationReachedRootsParent}.
-   * <p>
-   * It is safe to enable this if you plan on substituting x.urlText
-   * for x.originalUrlText in your output, but not if you plan on
-   * using x.originalUrlText.
+   * If not enabled (the default), apply(x) will return INVALID for
+   * {@linkplain URLValue#pathSimplificationReachedRootsParent overlong paths} like
+   * "{@code ../../../...}".
+   *
+   * <p>These paths are rejected as INVALId by default.
+   *
+   * <p>It is safe to enable this if you plan on substituting
+   * {@link URLValue#urlText} for {@link URLValue#originalUrlText}
+   * in your output, but not if you plan on using the original text
+   * or other computations have already made assumptions based on it.
+   *
+   * @param enable true to tolerate.
+   * @return this
    */
-  public URLClassifierBuilder toleratePathsThatReachRootsParent(boolean enable) {
+  public URLClassifierBuilder rootParent(boolean enable) {
     this.allowPathsThatReachRootsParent = enable;
     return this;
   }
 
   /**
-   * Don't reject as {@link Classification#INVALID} URLs whose interpretation involves
-   * the given corner cases.
+   * Don't reject as {@linkplain Classification#INVALID invalid} URLs
+   * that trigger the given corner cases.
+   *
+   * @param cornerCases to tolerate.  Unioned with previous calls' arguments.
+   * @return this
    */
   public URLClassifierBuilder tolerate(URLValue.URLSpecCornerCase... cornerCases) {
     return tolerate(Arrays.asList(cornerCases));
   }
 
   /**
-   * Don't reject as {@link Classification#INVALID} URLs whose interpretation involves
-   * the given corner cases.
+   * Don't reject as {@linkplain Classification#INVALID invalid} URLs
+   * that trigger the given corner cases.
+   *
+   * @param cornerCases to tolerate.  Unioned with previous calls' arguments.
+   * @return this
    */
   public URLClassifierBuilder tolerate(
       Iterable<? extends URLValue.URLSpecCornerCase> cornerCases) {
@@ -250,27 +212,37 @@ public final class URLClassifierBuilder {
 
   //// Sub-classifiers of kind scheme     MATCH_ME://...
   /**
-   * @see #matchesSchemes(Iterable)
+   * Allows URLs with the given schemes assuming any per-component classifiers
+   * also pass.
+   *
+   * @param schemes to white-list.
+   * @return this
    */
-  public URLClassifierBuilder matchesSchemes(Scheme... schemes) {
-    return matchesSchemes(Arrays.asList(schemes));
+  public URLClassifierBuilder scheme(Scheme... schemes) {
+    return scheme(Arrays.asList(schemes));
   }
   /**
    * Allows URLs with the given schemes assuming any per-component classifiers
    * also pass.
+   *
+   * @param schemes to white-list.
+   * @return this
    */
-  public URLClassifierBuilder matchesSchemes(Iterable<? extends Scheme> schemes) {
+  public URLClassifierBuilder scheme(Iterable<? extends Scheme> schemes) {
     this.allowedSchemes.addAll(schemes);
     return this;
   }
   /**
-   * Matches data schemes
-   * We can match data with an additional constraint on the mime-type.
-   * We special-case data because content-types are not attached to
+   * Matches the {@linkplain BuiltinScheme#DATA <tt>data:</tt>} scheme with
+   * an additional constraint on the media type.
+   * <p>We special-case {@code data:} because content-types are not attached to
    * URLs with other schemes and its rare to want to match a data: URL
    * without caring about the type of data.
+   *
+   * @param c will be applied to any data: URLs media type.
+   * @return this
    */
-  public URLClassifierBuilder matchesData(MediaTypeClassifier c) {
+  public URLClassifierBuilder schemeData(MediaTypeClassifier c) {
     this.allowedSchemes.add(BuiltinScheme.DATA);
     this.mediaTypeClassifier = this.mediaTypeClassifier == null
         ? c
@@ -283,8 +255,14 @@ public final class URLClassifierBuilder {
   /**
    * Specifies that any matching URLs must naturally have no authority
    * or have one that matches the given authority classifier.
+   * <p>
+   * If called multiple times, at least one authority classifier
+   * must match for the URL as a whole to match.
+   *
+   * @param ac receives the URL when it's time to check the authority.
+   * @return this
    */
-  public URLClassifierBuilder matchesAuthority(AuthorityClassifier ac) {
+  public URLClassifierBuilder authority(AuthorityClassifier ac) {
     this.authorityClassifier = this.authorityClassifier == null
         ? ac
         : AuthorityClassifier.or(this.authorityClassifier, ac);
@@ -295,28 +273,45 @@ public final class URLClassifierBuilder {
   private final ImmutableSet.Builder<String> positivePathGlobs = ImmutableSet.builder();
   private final ImmutableSet.Builder<String> negativePathGlobs = ImmutableSet.builder();
   /**
-   * In the glob, `**` matches one or more path components and * matches
-   * a single path component at most.  Matching is done after processing the
-   * special path components ".." and ".".
-   * If a glob ends in "/?" then a slash is optionally allowed at the end.
+   * Allow URLs whose paths match the given globs.
+   *
+   * <p>In the glob, "{@code **}" matches one or more path components and
+   * "{@code *}" matches a single path component at most.
+   * Matching is done after processing the special path components "{@code ..}" and
+   * "{@code .}".
+   *
+   * <p>If a glob ends in "{@code /?}" then a slash is optionally allowed at the end.
    * For example,
    * <ul>
-   *   <li>"**<!--->/*.html" matches all paths that end with ".html"
-   *   <li>"**.html" matches the same.
-   *   <li>"*.html" matches all single-component paths that end with ".html"
-   *   <li>"foo/**<!--->/bar" matches all paths that start with a foo component,
-   *     followed by zero or more other components and ending with bar.
-   *   <li>"foo/" matches "foo/" but not "foo" while "foo/?" matches both.
-   *   <li>"foo**" is not a valid glob.
+   *   <li>"<tt>**<!--->/*.html</tt>" matches all paths that end with
+   *     "<tt>.html</tt>"
+   *   <li>"<tt>**.html</tt>" matches the same.
+   *   <li>"<tt>*.html</tt>" matches all single-component paths that end with
+   *     "<tt>.html</tt>"
+   *   <li>"<tt>foo/**<!--->/bar</tt>" matches all paths that start with a
+   *     component "<tt>foo</tt>", followed by zero or more other components
+   *     and ending with a component "<tt>bar</tt>".
+   *   <li>"<tt>foo/</tt>" matches "<tt>foo/</tt>" but not "<tt>foo</tt>"
+   *     while "<tt>foo/?</tt>" matches both.
    * </ul>
    * The following code-points may be %-encoded in a path glob to allow them
    * to be treated literally as part of a path component: ('/', '*', '?', '%').
+   *
+   * @param pathGlobs if at least one glob is specified,
+   *      the path must match at least one of these globs for the URL to match.
+   * @return this
    */
-  public URLClassifierBuilder matchesPathGlobs(String... pathGlobs) {
-    return matchesPathGlobs(ImmutableList.copyOf(pathGlobs));
+  public URLClassifierBuilder pathGlob(String... pathGlobs) {
+    return pathGlob(ImmutableList.copyOf(pathGlobs));
   }
-  /** @see #matchesPathGlobs(String...) */
-  public URLClassifierBuilder matchesPathGlobs(
+  /**
+   * @see #pathGlob(String...)
+   *
+   * @param pathGlobs if at least one glob is specified,
+   *      the path must match at least one of these globs for the URL to match.
+   * @return this
+   */
+  public URLClassifierBuilder pathGlob(
       Iterable<? extends String> pathGlobs) {
     for (String pathGlob : pathGlobs) {
       Optional<String> decPathGlob = Percent.decode(pathGlob);
@@ -327,13 +322,21 @@ public final class URLClassifierBuilder {
     return this;
   }
   /**
-   * Like {@link #matchesPathGlobs(String...)} but the path must not match.
+   * Like {@link #pathGlob(String...)} but the path must not match.
+   *
+   * @param pathGlobs if any of these matches the URL's path, the URL will not match.
+   * @return this
    */
-  public URLClassifierBuilder notMatchesPathGlobs(String... pathGlobs) {
-    return notMatchesPathGlobs(ImmutableList.copyOf(pathGlobs));
+  public URLClassifierBuilder notPathGlob(String... pathGlobs) {
+    return notPathGlob(ImmutableList.copyOf(pathGlobs));
   }
-  /** @see #notMatchesPathGlobs(String...) */
-  public URLClassifierBuilder notMatchesPathGlobs(
+  /**
+   * Like {@link #pathGlob(String...)} but the path must not match.
+   *
+   * @param pathGlobs if any of these matches the URL's path, the URL will not match.
+   * @return this
+   */
+  public URLClassifierBuilder notPathGlob(
       Iterable<? extends String> pathGlobs) {
     for (String pathGlob : pathGlobs) {
       Optional<String> decPathGlob = Percent.decode(pathGlob);
@@ -349,8 +352,11 @@ public final class URLClassifierBuilder {
   /**
    * Specifies a query classifier that, in order for the URL to match,
    * must match the URL's query if the URL's scheme naturally has a query.
+   *
+   * @param qc is applied to the URL when it's time to check the query portion.
+   * @return this
    */
-  public URLClassifierBuilder matchesQuery(QueryClassifier qc) {
+  public URLClassifierBuilder query(QueryClassifier qc) {
     this.queryClassifier = this.queryClassifier == null
         ? qc
         : QueryClassifier.or(this.queryClassifier, qc);
@@ -358,9 +364,12 @@ public final class URLClassifierBuilder {
   }
   /**
    * Reverses the classifier where not(INVALID) == INVALID.
+   *
+   * @param qc is applied to the URL when it's time to check the query portion.
+   * @return this
    */
-  public URLClassifierBuilder notMatchesQuery(QueryClassifier qc) {
-    return matchesQuery(new NotQueryClassifier(qc));
+  public URLClassifierBuilder notQuery(QueryClassifier qc) {
+    return query(new NotQueryClassifier(qc));
   }
   static final class NotQueryClassifier implements QueryClassifier {
     final QueryClassifier qc;
@@ -372,7 +381,7 @@ public final class URLClassifierBuilder {
     @Override
     public Classification apply(
         URLValue x, Diagnostic.Receiver<? super URLValue> r) {
-      return qc.apply(x, Diagnostic.Receiver.NULL_RECEIVER).invert();
+      return qc.apply(x, Diagnostic.Receiver.NULL).invert();
     }
   }
 
@@ -381,9 +390,11 @@ public final class URLClassifierBuilder {
   /**
    * Specifies a fragment classifier that, in order for the URL to match,
    * must match the URL's fragment.
+   *
+   * @param fc is applied to the URL when it's time to check the fragment.
+   * @return this
    */
-  public URLClassifierBuilder matchesFragment(
-      FragmentClassifier fc) {
+  public URLClassifierBuilder fragment(FragmentClassifier fc) {
     this.fragmentClassifier = this.fragmentClassifier == null
         ? fc
         : FragmentClassifier.or(this.fragmentClassifier, fc);
@@ -391,10 +402,13 @@ public final class URLClassifierBuilder {
   }
   /**
    * Reverses the classifier where not(INVALID) == INVALID.
+   *
+   * @param fc is applied to the URL when it's time to check the fragment.
+   * @return this
    */
-  public URLClassifierBuilder notMatchesFragment(
+  public URLClassifierBuilder notFragment(
       FragmentClassifier fc) {
-    return matchesFragment(new NotFragmentClassifier(fc));
+    return fragment(new NotFragmentClassifier(fc));
   }
   static final class NotFragmentClassifier implements FragmentClassifier {
     final FragmentClassifier fc;
@@ -406,7 +420,7 @@ public final class URLClassifierBuilder {
     @Override
     public Classification apply(
         URLValue x, Diagnostic.Receiver<? super URLValue> r) {
-      return fc.apply(x, Diagnostic.Receiver.NULL_RECEIVER).invert();
+      return fc.apply(x, Diagnostic.Receiver.NULL).invert();
     }
   }
 
@@ -420,8 +434,11 @@ public final class URLClassifierBuilder {
    * data: URLs have the mime-type and any base64 specifier stripped, and if the
    * base64 is specified, the content is base64 decoded;
    * blob: URLs have the origin stripped.
+   *
+   * @param c is applied to the URL when it's time to check the content.
+   * @return this
    */
-  public URLClassifierBuilder matchesContent(ContentClassifier c) {
+  public URLClassifierBuilder content(ContentClassifier c) {
     this.contentClassifier = this.contentClassifier == null
         ? c
         : ContentClassifier.or(this.contentClassifier, c);
@@ -475,6 +492,7 @@ final class URLClassifierImpl implements URLClassifier {
   enum Diagnostics implements Diagnostic {
     UNTOLERATED_CORNER_CASE,
     NULS,
+    MALFORMED_ACCORING_TO_SCHEME,
     AUTHORITY_DID_NOT_MATCH,
     MALFORMED_PATH,
     PATH_SIMPLIFICATION_REACHED_ROOTS_PARENT,
@@ -483,7 +501,7 @@ final class URLClassifierImpl implements URLClassifier {
     QUERY_DID_NOT_MATCH,
     MEDIA_TYPE_DID_NOT_MATCH,
     CONTENT_DID_NOT_MATCH,
-    FRAGMENT_DID_NOT_MATCH
+    FRAGMENT_DID_NOT_MATCH,
   }
 
   @Override
@@ -498,6 +516,10 @@ final class URLClassifierImpl implements URLClassifier {
     }
     if (!matchesNULs && x.originalUrlText.indexOf('\0') >= 0) {
       r.note(Diagnostics.NULS, x);
+      return Classification.INVALID;
+    }
+    if (x.ranges == null) {
+      r.note(Diagnostics.MALFORMED_ACCORING_TO_SCHEME, x);
       return Classification.INVALID;
     }
 
@@ -537,17 +559,9 @@ final class URLClassifierImpl implements URLClassifier {
         return Classification.NOT_A_MATCH;
       }
     }
-    if (s.naturallyHasQuery || x.ranges.queryLeft >= 0) {
-      cr.reset();
-      Classification c = queryClassifier.apply(x, cr);
-      if (c != Classification.MATCH) {
-        cr.flush();
-        r.note(Diagnostics.QUERY_DID_NOT_MATCH, x);
-        return c;
-      }
-    }
+
     if (mediaTypeClassifier != null && x.getContentMediaType() != null) {
-      cr.reset();
+      cr.clear();
       Classification c = mediaTypeClassifier.apply(x, cr);
       if (c != Classification.MATCH) {
         cr.flush();
@@ -556,7 +570,7 @@ final class URLClassifierImpl implements URLClassifier {
       }
     }
     if (s.naturallyEmbedsContent || x.ranges.contentLeft >= 0) {
-      cr.reset();
+      cr.clear();
       Classification c = contentClassifier.apply(x, cr);
       if (c != Classification.MATCH) {
         cr.flush();
@@ -565,7 +579,17 @@ final class URLClassifierImpl implements URLClassifier {
       }
     }
 
-    cr.reset();
+    if (s.naturallyHasQuery || x.ranges.queryLeft >= 0) {
+      cr.clear();
+      Classification c = queryClassifier.apply(x, cr);
+      if (c != Classification.MATCH) {
+        cr.flush();
+        r.note(Diagnostics.QUERY_DID_NOT_MATCH, x);
+        return c;
+      }
+    }
+
+    cr.clear();
     Classification c = fragmentClassifier.apply(x, r);
     if (c != Classification.MATCH) {
       cr.flush();

@@ -14,6 +14,9 @@ public interface MediaTypeClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static MediaTypeClassifier or(MediaTypeClassifier... cs) {
     return or(Arrays.asList(cs));
@@ -22,6 +25,9 @@ public interface MediaTypeClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static MediaTypeClassifier or(
       Iterable<? extends MediaTypeClassifier> cs) {

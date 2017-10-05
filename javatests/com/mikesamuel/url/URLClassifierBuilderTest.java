@@ -76,18 +76,18 @@ public final class URLClassifierBuilderTest {
           TestUtil.STDERR_RECEIVER);
       try {
         for (URLValue x : expectInvalid.build()) {
-          cr.reset();
+          cr.clear();
           assertEquals(debug(x), Classification.INVALID, c.apply(x, cr));
         }
         for (URLValue x : expectMatches.build()) {
-          cr.reset();
+          cr.clear();
           assertEquals(debug(x), Classification.MATCH, c.apply(x, cr));
         }
         for (URLValue x : expectDoesNotMatch.build()) {
-          cr.reset();
+          cr.clear();
           assertEquals(debug(x), Classification.NOT_A_MATCH, c.apply(x, cr));
         }
-        cr.reset();
+        cr.clear();
       } finally {
         cr.flush();
       }
@@ -107,7 +107,7 @@ public final class URLClassifierBuilderTest {
             "/foo/",
             "..",
             "%",
-            "data:foo",
+            "data:foo/bar,",
             "https://www.example.net./",
             "mailto:user@domain.org")
         .run();
@@ -117,12 +117,13 @@ public final class URLClassifierBuilderTest {
   public void testAllowHttpHttps() {
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
             .build())
         .expectInvalid(
             "%2e%2E/%2e%2E/%2e%2E/etc/passwd",  // spec corner case
             "%",  // malformed escape sequence
             "\0",
+            "data:foo",
             "%c0%80")  // non-minimal encoding
         .expectMatches(
             "",
@@ -132,7 +133,7 @@ public final class URLClassifierBuilderTest {
             )
         .expectDoesNotMatch(
             "..",
-            "data:foo",
+            "data:foo/bar,",
             "mailto:user@domain.org")
         .run();
   }
@@ -141,10 +142,10 @@ public final class URLClassifierBuilderTest {
   public void testFilterAuthorities() {
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
-            .matchesAuthority(
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
+            .authority(
                 AuthorityClassifier.builder()
-                    .matchesHostGlob("*.example.net")
+                    .hostGlob("*.example.net")
                     .build())
             .build())
         .expectInvalid(
@@ -159,7 +160,7 @@ public final class URLClassifierBuilderTest {
             "/foo/",
             "..",
             "file:///foo",
-            "data:foo",
+            "data:text/plain,Hello%20World!",
             "mailto:user@domain.org")
         .useContext("http://foo.example.net/")
         .expectMatches(
@@ -177,9 +178,9 @@ public final class URLClassifierBuilderTest {
   public void testFilterPaths() {
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
-            .matchesPathGlobs("**.html", "/foo/*", "/app/?")
-            .notMatchesPathGlobs("/foo/error")
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
+            .pathGlob("**.html", "/foo/*", "/app/?")
+            .notPathGlob("/foo/error")
             .build())
         .expectInvalid(
             "%2e%2E/%2e%2E/%2e%2E/etc/passwd")  // spec corner case
@@ -225,8 +226,8 @@ public final class URLClassifierBuilderTest {
     // Escaping '?'
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.FILE)
-            .matchesPathGlobs("/foo/%3f")
+            .scheme(BuiltinScheme.FILE)
+            .pathGlob("/foo/%3f")
             .build())
          .useContext("file:/")
         .expectMatches("/foo/%3f", "/foo/%3F")
@@ -235,8 +236,8 @@ public final class URLClassifierBuilderTest {
     // Escaping '%'
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.FILE)
-            .matchesPathGlobs("/foo/%253f")
+            .scheme(BuiltinScheme.FILE)
+            .pathGlob("/foo/%253f")
             .build())
         .useContext("file:/")
         .expectMatches("/foo/%253f")
@@ -247,9 +248,9 @@ public final class URLClassifierBuilderTest {
     // Escaping '*'
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.FILE)
-            .matchesPathGlobs("/foo/%2A")
-            .matchesPathGlobs("/bar/%2A%2A")
+            .scheme(BuiltinScheme.FILE)
+            .pathGlob("/foo/%2A")
+            .pathGlob("/bar/%2A%2A")
             .build())
         .useContext("file:/")
         .expectMatches("/foo/*", "/bar/**")
@@ -259,9 +260,9 @@ public final class URLClassifierBuilderTest {
     // Escaping 'a' and 'A'
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.FILE)
-            .matchesPathGlobs("/b%61r")
-            .matchesPathGlobs("/B%41R")
+            .scheme(BuiltinScheme.FILE)
+            .pathGlob("/b%61r")
+            .pathGlob("/B%41R")
             .build())
         .useContext("file:/")
         .expectMatches("/bar", "/BAR", "/b%61r", "/%62%61r", "/%42%41R")
@@ -274,9 +275,9 @@ public final class URLClassifierBuilderTest {
   public final void testQueryClassifying() {
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
-            .matchesData(MediaTypeClassifier.any())  // Data don't naturally have queries
-            .matchesQuery(QueryClassifier.builder()
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
+            .schemeData(MediaTypeClassifier.any())  // Data don't naturally have queries
+            .query(QueryClassifier.builder()
                 .mayHaveKeys("a", "b", "c")
                 .mustHaveKeys("x")
                 .build())
@@ -306,9 +307,9 @@ public final class URLClassifierBuilderTest {
   public final void testFragment() {
     new TestBuilder(
         URLClassifier.builder()
-            .matchesSchemes(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
-            .matchesData(MediaTypeClassifier.any())  // Data don't naturally have queries
-            .matchesQuery(QueryClassifier.builder()
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
+            .schemeData(MediaTypeClassifier.any())  // Data don't naturally have queries
+            .query(QueryClassifier.builder()
                 .mayHaveKeys("a", "b", "c")
                 .mustHaveKeys("x")
                 .build())
@@ -333,6 +334,19 @@ public final class URLClassifierBuilderTest {
             )
         .run();
   }
+
+  @Test
+  public final void testBrokenInputs() {
+    new TestBuilder(
+        URLClassifier.builder()
+        .schemeData(MediaTypeClassifier.any())
+        .content(ContentClassifier.any())
+        .build())
+    .expectInvalid("data:text/plain;base64")
+    .run();
+  }
+
+  // TODO: simple content predicate with magic number check for gif
 
   static String debug(URLValue x) {
     String escapedUrl = x.urlText

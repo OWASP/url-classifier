@@ -8,6 +8,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 
 /**
+ * A scheme portion of a URL: <tt><b>http</b>://example.com/</tt>.
+ * <p>
  * Encapsulates knowledge about how to recognize a scheme in a URL and
  * how to decompose the URL into parts that can be further checked.
  */
@@ -36,8 +38,8 @@ public class Scheme {
   /** True iff the scheme embeds content. */
   public final boolean naturallyEmbedsContent;
   /**
-   * True iff the scheme has a default port associated with it which is used
-   * when the authority does not explicitly mention one.
+   * Non-negative when the scheme has a default port associated with it which
+   * is used when the authority does not explicitly mention one.
    */
   public final int defaultPortOrNegOne;
 
@@ -57,6 +59,10 @@ public class Scheme {
       ImmutableSet<String> lcaseNames,
       boolean isHierarchical, int defaultPortOrNegOne,
       SchemePart... parts) {
+    Preconditions.checkArgument(
+        defaultPortOrNegOne == -1
+        || (1 <= defaultPortOrNegOne && defaultPortOrNegOne <= 65535),
+        "Port is out of range");
     EnumSet<SchemePart> partSet = EnumSet.noneOf(SchemePart.class);
     partSet.addAll(Arrays.asList(parts));
     this.lcaseNames = lcaseNames;

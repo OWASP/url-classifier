@@ -6,8 +6,10 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 /**
- * A URL classifier that only looks at the authority
- * which normally comprises hostname:port
+ * A URL classifier that looks at the {@link Authority}: <tt>http://<b>example.com<b>/</tt>.
+ *
+ * <p>This may be used in a larger {@link URLClassifier} via
+ * {@link URLClassifierBuilder#authority}.
  */
 public interface AuthorityClassifier extends URLClassifier {
 
@@ -19,6 +21,9 @@ public interface AuthorityClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static AuthorityClassifier or(AuthorityClassifier... cs) {
     return or(Arrays.asList(cs));
@@ -27,6 +32,9 @@ public interface AuthorityClassifier extends URLClassifier {
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
+   *
+   * @param cs the operands.
+   * @return The disjunction of cs.
    */
   public static AuthorityClassifier or(Iterable<? extends AuthorityClassifier> cs) {
     return URLClassifierOr.<AuthorityClassifier>abstractOr(

@@ -14,12 +14,12 @@ import com.google.common.net.InternetDomainName;
 import com.google.common.net.MediaType;
 
 /**
- * Bundles a URL with sufficient context to allow part-wise analysis.
+ * A URL reference that can be examined piecewise.
  */
 public final class URLValue {
 
   /**
-   * A known oddity in the URL spec (STD 66/RFC 3986) that would
+   * An oddity in the URL spec (STD 66/RFC 3986) that would
    * probably not be there if it could be redrafted without concern
    * for backwards compatibility or spec complexity.
    * <p>
@@ -72,7 +72,7 @@ public final class URLValue {
 
   /** The context in which the URL is interpreted. */
   public final URLContext context;
-  /** The original URL text. */
+  /** The original URL text.  May be relative. */
   public final String originalUrlText;
 
   /**
@@ -101,16 +101,26 @@ public final class URLValue {
    */
   public final boolean pathSimplificationReachedRootsParent;
 
-  /** The full text of the URL after resolving against the context's base URL. */
+  /** The full text of the URL after resolving against the base URL. */
   public final String urlText;
 
   /** The scheme of the URL or {@link Scheme#UNKNOWN} if not known. */
   public final Scheme scheme;
-  /** The position of part boundaries within {@link #urlText}. */
+  /**
+   * The position of part boundaries within {@link #urlText} or null.
+   * It is null when the scheme specific part does not follow the
+   * additional rules for that scheme.
+   *
+   * <p>For example, the ranges are null for "{@code data:text/plain}"
+   * because the "{@code data:}" scheme requires a comma between the
+   * media-type ("{@code text/plain}") and the content but there is none.
+   */
   public final Scheme.PartRanges ranges;
   /**
    * Corner cases that might cause {@link #originalUrlText} to be
    * interpreted differently by different URL consumers.
+   *
+   * @see URLClassifierBuilder#tolerate
    */
   public final ImmutableSet<URLSpecCornerCase> cornerCases;
 
@@ -227,7 +237,7 @@ public final class URLValue {
         return auth;
       }
     }
-    if (r != Diagnostic.Receiver.NULL_RECEIVER
+    if (r != Diagnostic.Receiver.NULL
         && rawAuthority.isPresent() && !authority.isPresent()) {
       // Replay error messages.
       Authority.decode(this, r);

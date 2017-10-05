@@ -11,7 +11,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mikesamuel.url.Scheme.SchemePart;
 
-/** Schemes available by default. */
+/**
+ * Schemes available by default.
+ *
+ * @see SchemeLookupTable
+ */
 public final class BuiltinScheme {
   private BuiltinScheme() {
     // static API
@@ -201,7 +205,7 @@ public final class BuiltinScheme {
   }
 
   /** Null if the name isn't recognized as that of a builtin scheme. */
-  public static Scheme forName(String name) {
+  static Scheme forName(String name) {
     String lname = Ascii.toLowerCase(name);
     return BUILTIN_SCHEMES.get(lname);
   }

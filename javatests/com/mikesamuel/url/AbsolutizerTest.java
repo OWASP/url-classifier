@@ -15,7 +15,7 @@ import com.mikesamuel.url.Scheme.SchemePart;
 
 /**
  * The tables of test-cases are courtesy Mike J Brown from skew.org/uri/uri_tests.js
- * License: CC0 <https://creativecommons.org/publicdomain/zero/1.0/>
+ * License: CC0 &lt;https://creativecommons.org/publicdomain/zero/1.0/&gt;
  */
 @SuppressWarnings({ "static-method", "javadoc" })
 public class AbsolutizerTest {

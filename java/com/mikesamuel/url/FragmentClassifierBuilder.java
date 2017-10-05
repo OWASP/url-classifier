@@ -6,8 +6,14 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 
 /**
- * Builds a classifier over the fragment content excluding the '#'.
- * An absent fragment is equivalent to the empty fragment per RFC 3986.
+ * Builds a classifier over the fragment content.
+ * <p>
+ * The built classifier will match no fragments unless one of the match
+ * methods is called.  If multiple are called, it will match if any of the
+ * supplied predicates or classifiers matches.
+ * A predicate, p, is considered matching if {@code p.apply(x)} is true.
+ *
+ * @see FragmentClassifier#builder
  */
 public final class FragmentClassifierBuilder {
   private URLClassifier asRelativeUrlPred;
@@ -45,7 +51,7 @@ public final class FragmentClassifierBuilder {
    *    different regardless of the scheme.
    * </blockquote>
    */
-  public FragmentClassifierBuilder matches(Predicate<? super Optional<String>> p) {
+  public FragmentClassifierBuilder match(Predicate<? super Optional<String>> p) {
     this.fragmentPred = this.fragmentPred == null
         ? p
         : Predicates.or(this.fragmentPred, p);
@@ -64,13 +70,14 @@ public final class FragmentClassifierBuilder {
    * <p>This requires that the fragment will be present, so to allow
    * no fragment OR the fragments described above, use FragmentClassifier.or(...).
    */
-  public FragmentClassifierBuilder matchFragmentAsIfRelativeURL(URLClassifier p) {
+  public FragmentClassifierBuilder matchAsURL(URLClassifier p) {
     this.asRelativeUrlPred = this.asRelativeUrlPred == null
         ? p
         : URLClassifier.or(this.asRelativeUrlPred, p);
     return this;
   }
 }
+
 
 final class FragmentClassifierImpl implements FragmentClassifier {
   final Predicate<? super Optional<String>> fragmentClassifier;

@@ -1,11 +1,10 @@
 package com.mikesamuel.url;
 
-import com.mikesamuel.url.Diagnostic.Receiver;
-
 final class TestUtil {
 
   /** Logs messages found during test failure to stderr. */
-  static final Receiver<URLValue> STDERR_RECEIVER = new Receiver<URLValue>() {
+  static final Diagnostic.Receiver<URLValue> STDERR_RECEIVER =
+      new Diagnostic.Receiver<URLValue>() {
 
     @Override
     public void note(Diagnostic d, URLValue context) {
