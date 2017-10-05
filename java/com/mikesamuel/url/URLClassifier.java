@@ -8,9 +8,15 @@ import com.google.common.collect.ImmutableList;
  * A classifier over URL inputs.
  */
 public interface URLClassifier extends Function<URLValue, Classification> {
+
   /** Classifies the URL as matching, not matching or structurally invalid. */
   @Override
-  Classification apply(URLValue x);
+  public Classification apply(URLValue x);
+
+  /** A new blank builder. */
+  public static URLClassifierBuilder builder() {
+    return new URLClassifierBuilder();
+  }
 
   /**
    * A classifier that passes when applying cs in order results in a match before a

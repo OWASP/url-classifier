@@ -1,5 +1,6 @@
 package com.mikesamuel.url;
 
+import java.util.EnumSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -8,6 +9,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
+import com.google.common.net.InternetDomainName;
 import com.google.common.net.MediaType;
 
 /**
@@ -60,6 +63,11 @@ public final class URLValue {
      * {@code remove_dot_segments("foo/../baz')} which yields {@code "/bar"}.
      */
     RELATIVE_URL_MERGED_TO_ABSOLUTE,
+    /**
+     * Per {@link URLContext.MicrosoftPathStrategy}, some backslashes were flipped to
+     * forward slashes.
+     */
+    FLIPPED_SLASHES,
   }
 
   /** The context in which the URL is interpreted. */
@@ -111,15 +119,50 @@ public final class URLValue {
    * @return a URL value with the given original text and whose
    *     urlText is an absolute URL.
    */
-  public static URLValue of(URLContext context, String originalUrlText) {
+  public static URLValue from(URLContext context, String originalUrlText) {
+    String urlText = originalUrlText;
+    switch (context.urlSource) {
+      case HUMAN_READABLE_INPUT:
+        if (urlText.indexOf(':') < 0) {
+          String prefix = null;
+          String suffix = null;
+          String hostPortion = null;
+          int at = urlText.indexOf('@');
+          if (at >= 0) {
+            prefix = "mailto:";
+            suffix = "";
+            hostPortion = urlText.substring(at + 1);
+          } else {
+            int slash = urlText.indexOf('/');
+            prefix = "http://";
+            hostPortion = slash >= 0 ? urlText.substring(0, slash) : urlText;
+            suffix = slash < 0 ? "/" : "";
+          }
+          if (hostPortion != null) {
+            InternetDomainName dname;
+            try {
+              dname = InternetDomainName.from(hostPortion);
+            } catch (@SuppressWarnings("unused")
+                     IllegalArgumentException ex) {
+              dname = null;
+            }
+            if (dname != null && dname.hasPublicSuffix()) {
+              urlText = prefix + urlText + suffix;
+            }
+          }
+        }
+        break;
+      case MACHINE_READABLE_INPUT:
+        break;
+    }
     return new URLValue(
         Preconditions.checkNotNull(context),
-        Preconditions.checkNotNull(originalUrlText));
+        Preconditions.checkNotNull(urlText));
   }
 
   /** Uses the default context. */
-  public static URLValue of(String originalUrlText) {
-    return new URLValue(URLContext.DEFAULT, originalUrlText);
+  public static URLValue from(String originalUrlText) {
+    return from(URLContext.DEFAULT, originalUrlText);
   }
 
 
@@ -127,7 +170,18 @@ public final class URLValue {
     this.context = context;
     this.originalUrlText = originalUrlText;
 
-    Absolutizer.Result abs = context.absolutizer.absolutize(originalUrlText);
+    String refUrlText = originalUrlText;
+    boolean flippedSlashes = false;
+    switch (context.microsoftPathStrategy) {
+      case BACK_TO_FORWARD:
+        refUrlText = refUrlText.replace('\\', '/');
+        flippedSlashes = !refUrlText.equals(originalUrlText);
+        break;
+      case STANDARDS_COMPLIANT:
+        break;
+    }
+
+    Absolutizer.Result abs = context.absolutizer.absolutize(refUrlText);
     this.scheme  = abs.scheme;
     this.urlText = abs.absUrlText;
     this.ranges = abs.absUrlRanges;
@@ -139,7 +193,14 @@ public final class URLValue {
         && this.ranges.authorityRight - this.ranges.authorityLeft == phLen
         && URLContext.PLACEHOLDER_AUTHORITY.regionMatches(
             0, this.urlText, abs.absUrlRanges.authorityLeft, phLen);
-    this.cornerCases = abs.cornerCases;
+    ImmutableSet<URLSpecCornerCase> allCornerCases = abs.cornerCases;
+    if (flippedSlashes) {
+      EnumSet<URLSpecCornerCase> ccs = EnumSet.noneOf(URLSpecCornerCase.class);
+      ccs.addAll(allCornerCases);
+      ccs.add(URLSpecCornerCase.FLIPPED_SLASHES);
+      allCornerCases = Sets.immutableEnumSet(ccs);
+    }
+    this.cornerCases = allCornerCases;
   }
 
   private String authority;
@@ -240,6 +301,11 @@ public final class URLValue {
   public int hashCode() {
     return originalUrlText.hashCode() + 31 * context.hashCode();
   }
+
+  @Override
+  public String toString() {
+    return urlText;
+  }
 }
 
 
@@ -288,8 +354,8 @@ final class DataSchemeMediaTypeUtil {
     if (!m.find()) {
       return Optional.absent();
     }
-    String type = PctDecode.of(m.group(1)).orNull();
-    String subtype = PctDecode.of(m.group(2)).orNull();
+    String type = Percent.decode(m.group(1)).orNull();
+    String subtype = Percent.decode(m.group(2)).orNull();
     if (type == null || subtype == null) {
       return Optional.absent();
     }
@@ -309,8 +375,8 @@ final class DataSchemeMediaTypeUtil {
         if (eq < 0) {
           return Optional.absent();
         }
-        String key = PctDecode.of(parameter.substring(0, eq)).orNull();
-        String value = PctDecode.of(parameter.substring(eq + 1)).orNull();
+        String key = Percent.decode(parameter.substring(0, eq)).orNull();
+        String value = Percent.decode(parameter.substring(eq + 1)).orNull();
         if (key == null || value == null) {
           return Optional.absent();
         }

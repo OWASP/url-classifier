@@ -11,6 +11,11 @@ import com.google.common.collect.ImmutableList;
  */
 public interface AuthorityClassifier extends URLClassifier {
 
+  /** A new blank builder. */
+  public static AuthorityClassifierBuilder builder() {
+    return new AuthorityClassifierBuilder();
+  }
+
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.

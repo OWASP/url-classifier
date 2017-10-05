@@ -14,23 +14,23 @@ public final class PctDecodeTest {
 
   @Test
   public void testEmptyString() {
-    assertEquals(Optional.of(""), PctDecode.of(""));
+    assertEquals(Optional.of(""), Percent.decode(""));
   }
 
   @Test
   public void testNoEncoding() {
-    assertSame("foo", PctDecode.of("foo").get());
+    assertSame("foo", Percent.decode("foo").get());
   }
 
   @Test
   public void testAmbiguous() {
-    assertEquals(Optional.of("+"), PctDecode.of("+"));
+    assertEquals(Optional.of("+"), Percent.decode("+"));
   }
 
   @Test
   public void testSimpleExample() {
-    assertEquals(Optional.of("Fran\u00e7ois"), PctDecode.of("Fran%c3%a7ois"));
-    assertEquals(Optional.of("Fran\u00e7ois"), PctDecode.of("Fran%C3%A7ois"));
+    assertEquals(Optional.of("Fran\u00e7ois"), Percent.decode("Fran%c3%a7ois"));
+    assertEquals(Optional.of("Fran\u00e7ois"), Percent.decode("Fran%C3%A7ois"));
   }
 
   @Test
@@ -51,13 +51,13 @@ public final class PctDecodeTest {
       String enc = URLEncoder.encode(inp, "UTF-8");
       assertEquals(
           "U+" + Integer.toHexString(i),
-          Optional.of(inp), PctDecode.of(enc));
+          Optional.of(inp), Percent.decode(enc));
     }
   }
 
   private static void assertSpaceDelim(String hexpairs, String want) {
     Optional<String> wantOpt = Optional.fromNullable(want);
-    Optional<String> gotOpt = PctDecode.of(hexpairs.replace(' ', '%'));
+    Optional<String> gotOpt = Percent.decode(hexpairs.replace(' ', '%'));
     if (wantOpt.isPresent() && gotOpt.isPresent()) {
       assertEquals(wantOpt.get(), gotOpt.get());
     }

@@ -27,6 +27,8 @@ public final class Absolutizer {
    * @param schemes looks up schemes by name.
    * @param contextUrl An absolute, hierarchical URL that serves as the base
    *   for relative URLs.
+   * @throws IllegalArgumentException if the contextUrl is malformed, relative,
+   *   or uses an unrecognized scheme.
    */
   public Absolutizer(SchemeLookupTable schemes, String contextUrl) {
     this.schemes = schemes;
@@ -46,31 +48,31 @@ public final class Absolutizer {
   }
 
 
-  /** Evaluates a relative URL in the context of an absolute URL. */
-  public Result absolutize(String originalUrlText) {
-    int eos = endOfScheme(originalUrlText);
+  /** Evaluates a URL reference in the context of an absolute URL. */
+  public Result absolutize(String refUrlText) {
+    int eos = endOfScheme(refUrlText);
     boolean pathSimplificationReachedRootsParent = false;
     EnumSet<URLValue.URLSpecCornerCase> cornerCases = EnumSet.noneOf(
         URLValue.URLSpecCornerCase.class);
 
     Scheme scheme;
-    PartRanges originalUrlRanges, absUrlRanges;
+    PartRanges refUrlRanges, absUrlRanges;
     String absUrlText;
     if (eos >= 0) {
       scheme = schemes.schemeForName(
-          originalUrlText.substring(0, eos - 1 /* ':' */));
-      originalUrlRanges = scheme.decompose(
-          schemes, originalUrlText, eos, originalUrlText.length());
-      absUrlText = originalUrlText;
-      absUrlRanges = originalUrlRanges;
-      if (scheme.isHierarchical && originalUrlRanges.pathRight >= 0) {
-        StringBuilder sb = new StringBuilder(originalUrlText.length());
-        sb.append(originalUrlText, 0, originalUrlRanges.pathRight);
+          refUrlText.substring(0, eos - 1 /* ':' */));
+      refUrlRanges = scheme.decompose(
+          schemes, refUrlText, eos, refUrlText.length());
+      absUrlText = refUrlText;
+      absUrlRanges = refUrlRanges;
+      if (scheme.isHierarchical && refUrlRanges.pathRight >= 0) {
+        StringBuilder sb = new StringBuilder(refUrlText.length());
+        sb.append(refUrlText, 0, refUrlRanges.pathRight);
         pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(
-            sb, originalUrlRanges.pathLeft, cornerCases);
-        if (sb.length() != originalUrlRanges.pathRight) {
+            sb, refUrlRanges.pathLeft, cornerCases);
+        if (sb.length() != refUrlRanges.pathRight) {
           // Path normalization did some work.
-          sb.append(originalUrlText, originalUrlRanges.pathRight, originalUrlText.length());
+          sb.append(refUrlText, refUrlRanges.pathRight, refUrlText.length());
           absUrlText = sb.toString();
           absUrlRanges = scheme.decompose(
               schemes, absUrlText, eos, absUrlText.length());
@@ -79,8 +81,8 @@ public final class Absolutizer {
     } else {
       scheme = contextScheme;
       PartRanges crs = this.contextRanges;
-      PartRanges ors = originalUrlRanges = scheme.decompose(
-          schemes, originalUrlText, 0, originalUrlText.length());
+      PartRanges rrs = refUrlRanges = scheme.decompose(
+          schemes, refUrlText, 0, refUrlText.length());
 //      System.err.println("ors=" + ors);
       // We have an example of a well-structured absolute URL with the
       // right scheme in contextURL.
@@ -94,18 +96,18 @@ public final class Absolutizer {
 
       // Collect parts on this buffer.
       StringBuilder partBuf = new StringBuilder(
-          originalUrlText.length() + contextUrl.length());
+          refUrlText.length() + contextUrl.length());
 
       // True if we have used a part from the given URL instead of
       // the context URL which indicates that we should defer to the
       // given URL for subseuqent parts.
       boolean usedGivenUrlPart = false;
 
-      if (ors.authorityLeft >= 0) {
+      if (rrs.authorityLeft >= 0) {
         usedGivenUrlPart = true;
         int absAuthLeft = partBuf.length();
         partBuf.append(
-            originalUrlText, ors.authorityLeft, ors.authorityRight);
+            refUrlText, rrs.authorityLeft, rrs.authorityRight);
         abs.withAuthority(absAuthLeft, partBuf.length());
       } else if (crs.authorityLeft >= 0) {
         int absAuthLeft = partBuf.length();
@@ -119,13 +121,13 @@ public final class Absolutizer {
 //      System.err.println("crs.pathRight=" + crs.pathRight);
 //      System.err.println("usedGivenUrlPart=" + usedGivenUrlPart);
       int absPathLeft = -1;
-      if (ors.pathLeft < ors.pathRight || usedGivenUrlPart) {
+      if (rrs.pathLeft < rrs.pathRight || usedGivenUrlPart) {
         absPathLeft = partBuf.length();
-        if (ors.pathLeft >= 0) {
-          if (ors.pathLeft < ors.pathRight
-              && originalUrlText.charAt(ors.pathLeft) == '/') {
+        if (rrs.pathLeft >= 0) {
+          if (rrs.pathLeft < rrs.pathRight
+              && refUrlText.charAt(rrs.pathLeft) == '/') {
             // Absolute path.
-            partBuf.append(originalUrlText, ors.pathLeft, ors.pathRight);
+            partBuf.append(refUrlText, rrs.pathLeft, rrs.pathRight);
           } else if (!usedGivenUrlPart) {
             // Relative path.
             // Append the context path.
@@ -153,7 +155,7 @@ public final class Absolutizer {
               partBuf.append('/');
             }
             // Append new path
-            partBuf.append(originalUrlText, ors.pathLeft, ors.pathRight);
+            partBuf.append(refUrlText, rrs.pathLeft, rrs.pathRight);
           }
         }
         usedGivenUrlPart = true;
@@ -173,20 +175,20 @@ public final class Absolutizer {
       }
 //      System.err.println("absPathRight=" + absPathRight + ", partBuf=" + partBuf);
 
-      if (ors.contentLeft < ors.contentRight
-          || ors.contentMetadataLeft < ors.contentMetadataRight
+      if (rrs.contentLeft < rrs.contentRight
+          || rrs.contentMetadataLeft < rrs.contentMetadataRight
           || usedGivenUrlPart) {
         usedGivenUrlPart = true;
-        if (ors.contentMetadataLeft >= 0) {
+        if (rrs.contentMetadataLeft >= 0) {
           int absContentMetadataLeft = partBuf.length();
           partBuf.append(
-              originalUrlText,
-              ors.contentMetadataLeft, ors.contentMetadataRight);
+              refUrlText,
+              rrs.contentMetadataLeft, rrs.contentMetadataRight);
           abs.withContentMetadata(absContentMetadataLeft, partBuf.length());
         }
-        if (ors.contentLeft >= 0) {
+        if (rrs.contentLeft >= 0) {
           int absContentLeft = partBuf.length();
-          partBuf.append(originalUrlText, ors.contentLeft, ors.contentRight);
+          partBuf.append(refUrlText, rrs.contentLeft, rrs.contentRight);
           abs.withContent(absContentLeft, partBuf.length());
         }
       } else if (
@@ -205,10 +207,10 @@ public final class Absolutizer {
         }
       }
 
-      if (ors.queryLeft >= 0) {
+      if (rrs.queryLeft >= 0) {
         usedGivenUrlPart = true;
         int absQueryLeft = partBuf.length();
-        partBuf.append(originalUrlText, ors.queryLeft, ors.queryRight);
+        partBuf.append(refUrlText, rrs.queryLeft, rrs.queryRight);
         abs.withQuery(absQueryLeft, partBuf.length());
       } else if (!usedGivenUrlPart && crs.queryLeft >= 0) {
         int absQueryLeft = partBuf.length();
@@ -216,9 +218,9 @@ public final class Absolutizer {
         abs.withQuery(absQueryLeft, partBuf.length());
       }
 
-      if (ors.fragmentLeft >= 0) {
+      if (rrs.fragmentLeft >= 0) {
         int absFragmentLeft = partBuf.length();
-        partBuf.append(originalUrlText, ors.fragmentLeft, ors.fragmentRight);
+        partBuf.append(refUrlText, rrs.fragmentLeft, rrs.fragmentRight);
         abs.withFragment(absFragmentLeft, partBuf.length());
       }
       // Do not inherit fragment from context URL.
@@ -234,7 +236,7 @@ public final class Absolutizer {
           schemes, absUrlText, contextEos, absUrlText.length());
     }
 
-    if (contextRanges.authorityLeft < 0 && originalUrlRanges.authorityLeft < 0
+    if (contextRanges.authorityLeft < 0 && refUrlRanges.authorityLeft < 0
         && absUrlRanges.pathRight - absUrlRanges.pathLeft >= 2
         && '/' == absUrlText.charAt(absUrlRanges.pathLeft)
         && '/' == absUrlText.charAt(absUrlRanges.pathLeft + 1)) {
@@ -242,7 +244,7 @@ public final class Absolutizer {
     }
 
     return new Result(
-        scheme, originalUrlText, originalUrlRanges, absUrlText, absUrlRanges,
+        scheme, refUrlText, refUrlRanges, absUrlText, absUrlRanges,
         pathSimplificationReachedRootsParent, cornerCases);
   }
 

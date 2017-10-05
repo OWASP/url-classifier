@@ -86,7 +86,8 @@ public final class BuiltinScheme {
     }
   };
   /** See http://tools.ietf.org/html/2397 */
-  public static final Scheme DATA = new Scheme(ImmutableSet.of("data"), false, -1, SchemePart.CONTENT) {
+  public static final Scheme DATA = new Scheme(
+      ImmutableSet.of("data"), false, -1, SchemePart.CONTENT) {
     @Override
     public PartRanges decompose(
         SchemeLookupTable schemes,

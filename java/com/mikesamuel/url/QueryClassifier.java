@@ -5,6 +5,12 @@ import com.google.common.collect.ImmutableList;
 
 /** A URLClassifier that considers only the query portion. */
 public interface QueryClassifier extends URLClassifier {
+
+  /** A new blank builder. */
+  public static QueryClassifierBuilder builder() {
+    return new QueryClassifierBuilder();
+  }
+
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.

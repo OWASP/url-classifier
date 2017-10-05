@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.MediaType;
 
 @SuppressWarnings({"javadoc", "static-method"})
@@ -15,22 +16,22 @@ public final class URLValueTest {
   public void testInheritsPlaceholderAuthority() {
     final String PH = URLContext.PLACEHOLDER_AUTHORITY;
 
-    assertTrue(URLValue.of("").inheritsPlaceholderAuthority);
-    assertTrue(URLValue.of("#").inheritsPlaceholderAuthority);
-    assertTrue(URLValue.of("?query").inheritsPlaceholderAuthority);
-    assertTrue(URLValue.of("/").inheritsPlaceholderAuthority);
-    assertTrue(URLValue.of("/foo").inheritsPlaceholderAuthority);
-    assertTrue(URLValue.of("/foo/./").inheritsPlaceholderAuthority);
-    assertTrue(URLValue.of("/foo/./").inheritsPlaceholderAuthority);
-    assertTrue(URLValue.of("/foo?q#f").inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("//localhost/").inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("//localhost").inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("http://" + PH).inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("http://" + PH + "/").inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("http://foo.com/").inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("https://" + PH).inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("https://" + PH + "/foo/").inheritsPlaceholderAuthority);
-    assertFalse(URLValue.of("https://" + PH + ":443/foo/").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("#").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("?query").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("/").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("/foo").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("/foo/./").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("/foo/./").inheritsPlaceholderAuthority);
+    assertTrue(URLValue.from("/foo?q#f").inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("//localhost/").inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("//localhost").inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("http://" + PH).inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("http://" + PH + "/").inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("http://foo.com/").inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("https://" + PH).inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("https://" + PH + "/foo/").inheritsPlaceholderAuthority);
+    assertFalse(URLValue.from("https://" + PH + ":443/foo/").inheritsPlaceholderAuthority);
   }
 
   @Test
@@ -55,7 +56,7 @@ public final class URLValueTest {
              "foo/bar/baz/../../boo/../..",
              "foo/./bar/./baz/../../boo/../../",
          }) {
-      URLValue v = URLValue.of(url);
+      URLValue v = URLValue.from(url);
       assertFalse(url, v.pathSimplificationReachedRootsParent);
     }
     // Path simplification does reach root parent
@@ -80,7 +81,7 @@ public final class URLValueTest {
              "http://foo.com/../",
              "http://foo.com/bar/../baz/../..",
          }) {
-      URLValue v = URLValue.of(url);
+      URLValue v = URLValue.from(url);
       assertTrue(url, v.pathSimplificationReachedRootsParent);
     }
   }
@@ -89,42 +90,102 @@ public final class URLValueTest {
   public void testGetContentMediaType() {
     assertEquals(
         MediaType.parse("text/plain"),
-        URLValue.of("data:text/plain,").getContentMediaType());
+        URLValue.from("data:text/plain,").getContentMediaType());
     assertEquals(
         MediaType.parse("text/plain;charset=UTF-8"),
-        URLValue.of("data:text/plain;charset=UTF-8,").getContentMediaType());
+        URLValue.from("data:text/plain;charset=UTF-8,").getContentMediaType());
     assertEquals(
         MediaType.parse("text/plain;charset=UTF-8"),
-        URLValue.of("data:text/plain;charset=\"UTF\\-8\",").getContentMediaType());
+        URLValue.from("data:text/plain;charset=\"UTF\\-8\",").getContentMediaType());
     assertEquals(
         MediaType.parse("image/gif; desc=\"a logo\""),
-        URLValue.of("data:image/gif;desc=a logo,").getContentMediaType());
+        URLValue.from("data:image/gif;desc=a logo,").getContentMediaType());
     assertEquals(
         MediaType.parse("image/png"),
-        URLValue.of("data:ima%67e/pn%67,f%6f%6F=b%61r").getContentMediaType());
+        URLValue.from("data:ima%67e/pn%67,f%6f%6F=b%61r").getContentMediaType());
     assertEquals(
         MediaType.parse("image/svg;foo=bar"),
-        URLValue.of("data:ima%67e/sv%67;f%6f%6F=b%61r,").getContentMediaType());
+        URLValue.from("data:ima%67e/sv%67;f%6f%6F=b%61r,").getContentMediaType());
     assertEquals(
         MediaType.parse("image/svg;foo=bar"),
-        URLValue.of("data:ima%67e/sv%67;f%6f%6F=\"b%61r\",").getContentMediaType());
+        URLValue.from("data:ima%67e/sv%67;f%6f%6F=\"b%61r\",").getContentMediaType());
     assertEquals(
         MediaType.parse("image/svg;foo=bar"),
-        URLValue.of("data:ima%67e/sv%67;f%6f%6F=%22b%61r\",").getContentMediaType());
+        URLValue.from("data:ima%67e/sv%67;f%6f%6F=%22b%61r\",").getContentMediaType());
     assertEquals(
         MediaType.parse("image/svg;foo=bar"),
-        URLValue.of("data:ima%67e/sv%67;f%6f%6F=\"b\\%61r%22,").getContentMediaType());
+        URLValue.from("data:ima%67e/sv%67;f%6f%6F=\"b\\%61r%22,").getContentMediaType());
     assertEquals(
         MediaType.parse("image/svg;foo=bar"),
-        URLValue.of("data:ima%67e/sv%67;f%6f%6F=%22b%5c%61r%22,").getContentMediaType());
+        URLValue.from("data:ima%67e/sv%67;f%6f%6F=%22b%5c%61r%22,").getContentMediaType());
     assertEquals(
         null,
-        URLValue.of("data:text%2fhtml,").getContentMediaType());
+        URLValue.from("data:text%2fhtml,").getContentMediaType());
     assertEquals(
         null,
-        URLValue.of("data:text/html%3fcharset=utf-8,").getContentMediaType());
+        URLValue.from("data:text/html%3fcharset=utf-8,").getContentMediaType());
     assertEquals(
         MediaType.parse("text/html;charset=utf-8"),
-        URLValue.of("data:text/html;charset=utf-8,").getContentMediaType());
+        URLValue.from("data:text/html;charset=utf-8,").getContentMediaType());
+  }
+
+  @Test
+  public void testHumanReadableContext() {
+    URLContext humanReadableContext =
+        new URLContext(URLContext.DEFAULT.absolutizer)
+        .with(URLContext.URLSource.HUMAN_READABLE_INPUT);
+    assertEquals(
+        "http://example.org./",
+        URLValue.from(humanReadableContext, "").urlText);
+    assertEquals(
+        "http://example.org./",
+        URLValue.from(humanReadableContext, "/").urlText);
+    assertEquals(
+        "http://foo.com/bar",
+        URLValue.from(humanReadableContext, "http://foo.com/bar").urlText);
+    assertEquals(
+        "http://foo.com/bar",
+        URLValue.from(humanReadableContext, "foo.com/bar").urlText);
+    assertEquals(
+        "http://foo.com/",
+        URLValue.from(humanReadableContext, "foo.com").urlText);
+    assertEquals(
+        "mailto:foo@bar.com",
+        URLValue.from(humanReadableContext, "foo@bar.com").urlText);
+    assertEquals(
+        "http://example.org./foo@",
+        URLValue.from(humanReadableContext, "foo@").urlText);
+    assertEquals(
+        "http://example.org./@twitterHandle",
+        URLValue.from(humanReadableContext, "@twitterHandle").urlText);
+  }
+
+  @Test
+  public void testFlippingSlashes() {
+    URLContext flippingContext =
+        new URLContext(URLContext.DEFAULT.absolutizer)
+        .with(URLContext.MicrosoftPathStrategy.BACK_TO_FORWARD);
+
+    URLValue u;
+
+    u = URLValue.from(flippingContext, "");
+    assertEquals("http://example.org./", u.urlText);
+    assertEquals(u.toString(), ImmutableSet.of(), u.cornerCases);
+
+    u = URLValue.from(flippingContext, "/");
+    assertEquals("http://example.org./", u.urlText);
+    assertEquals(u.toString(), ImmutableSet.of(), u.cornerCases);
+
+    u = URLValue.from(flippingContext, "http://foo.com/bar");
+    assertEquals("http://foo.com/bar", u.urlText);
+    assertEquals(u.toString(), ImmutableSet.of(), u.cornerCases);
+
+    u = URLValue.from(flippingContext, "file:\\C|\\foo\\bar");
+    assertEquals("file:/C|/foo/bar", u.urlText);
+    assertEquals("/C|/foo/bar", u.getPath());
+    assertEquals(
+        u.toString(),
+        ImmutableSet.of(URLValue.URLSpecCornerCase.FLIPPED_SLASHES),
+        u.cornerCases);
   }
 }

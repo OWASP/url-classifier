@@ -39,13 +39,8 @@ public final class AuthorityClassifierBuilder {
   // There is no way to match http://msamuel:hello-kitty@google.com/
   // via this API.  Also, get your own password.
 
-  private AuthorityClassifierBuilder() {
+  AuthorityClassifierBuilder() {
     // Static factory.
-  }
-
-  /** A new blank builder. */
-  public static AuthorityClassifierBuilder builder() {
-    return new AuthorityClassifierBuilder();
   }
 
   /**
@@ -265,7 +260,7 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
         if (EXPLAIN_INVALID) { System.err.println("password"); }
         return Classification.INVALID;
       }
-      Optional<CharSequence> unameOpt = PctDecode.of(auth, 0, at, false);
+      Optional<CharSequence> unameOpt = Percent.decode(auth, 0, at, false);
       if (unameOpt.isPresent()) {
         uname = unameOpt.get();
       } else {
@@ -367,7 +362,7 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
       if (InetAddresses.isUriInetAddress(host)) {
         hostValue = InetAddresses.forUriString(host);
       } else {
-        Optional<String> decodedHostOpt = PctDecode.of(host);
+        Optional<String> decodedHostOpt = Percent.decode(host);
         if (!decodedHostOpt.isPresent()) {
           if (EXPLAIN_INVALID) {
             System.err.println("misencoding in host " + host);

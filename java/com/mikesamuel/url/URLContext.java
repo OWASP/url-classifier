@@ -15,7 +15,6 @@ public final class URLContext {
   /** @see URLSource */
   public final URLSource urlSource;
 
-
   /**
    * Microsoft uses back-slash ('\\') to separate file components and many
    * Microsoft systems helpfully treat ('\\') as equivalent to the normal

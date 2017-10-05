@@ -68,13 +68,8 @@ import com.google.common.collect.Sets;
  * `javascript:`.
  */
 public final class URLClassifierBuilder {
-  private URLClassifierBuilder() {
+  URLClassifierBuilder() {
     // Use static factory
-  }
-
-  /** A new blank builder. */
-  public static URLClassifierBuilder builder() {
-    return new URLClassifierBuilder();
   }
 
   /**
@@ -144,27 +139,57 @@ public final class URLClassifierBuilder {
 
       // Split the glob so that all "*" and "**" segments appear at the front
       // of tokens and any trailing /? appears by itself.
-      String[] parts = glob.split("(?=[*][*]?|/[?]\\z)");
-      for (int i = 0, n = parts.length; i < n; ++i) {
-        String part = parts[i];
-        if (part.startsWith("**")) {
-          sb.append("(?<=^|/).*(?=/|\\z)");
-          part = part.substring(2);
-        } else if (part.startsWith("*")) {
-          sb.append("[^/]*");
-          part = part.substring(1);
-        } else if (i + 1 == n && "/?".equals(part)) {
-          sb.append("(?:/\\z)?");
-          part = "";
+      int written = 0;
+      int n = glob.length();
+      for (int i = 0; i <= n; ++i) {
+        String sub = null;
+        int nMatched = 0;
+        if (i == n) {
+          sub = "";  // Forces write of last region
+          nMatched = 1;
+        } else if ("/**/".regionMatches(0, glob, i, 4)) {
+          nMatched = 4;
+          // /**/ should match /
+          sub = "/(?:.*/)?";
+        } else if ("/**".regionMatches(0, glob, i, 3) && i + 3 == n) {
+          nMatched = 3;
+          sub = "/.*\\z";
+        } else if ("**".regionMatches(0, glob, i, 2)) {
+          nMatched = 2;
+          sub = ".*";
+        } else if (glob.charAt(i) == '*') {
+          nMatched = 1;
+          sub = "[^/]*";
+        } else if (i + 2 == n && "/?".regionMatches(0, glob, i, 2)) {
+          nMatched = 2;
+          sub = "/?";
         }
-        if (!part.isEmpty()) {
-          Optional<String> partDec = PctDecode.of(part);
-          sb.append(Pattern.quote(partDec.get()));
+        if (sub != null) {
+          if (i != written) {
+            String globPart = glob.substring(written, i);
+            Optional<String> decodedPart = Percent.decode(globPart);
+            if (decodedPart.isPresent()) {
+              sb.append(Pattern.quote(decodedPart.get()));
+            } else {
+              // We check when adding a glob that it decodes properly
+              // so this should not occur.
+              throw new AssertionError(globPart);
+            }
+          }
+          sb.append(sub);
+          written = i + nMatched;
+          i = written - 1;
         }
       }
     }
-    if (!wroteOne) { sb.append("(?!)"); }
+    if (!wroteOne) {
+      // We are joining using | but if there's no operands we
+      // should fail to match per the usual semantics of
+      // zero-arity OR.
+      sb.append("(?!)");
+    }
     sb.append(")\\z");
+//    System.err.println(Arrays.asList(globs) + " => " + sb);
     return Pattern.compile(sb.toString());
   }
 
@@ -246,6 +271,7 @@ public final class URLClassifierBuilder {
    * without caring about the type of data.
    */
   public URLClassifierBuilder matchesData(MediaTypeClassifier c) {
+    this.allowedSchemes.add(BuiltinScheme.DATA);
     this.mediaTypeClassifier = this.mediaTypeClassifier == null
         ? c
         : MediaTypeClassifier.or(this.mediaTypeClassifier, c);
@@ -276,6 +302,7 @@ public final class URLClassifierBuilder {
    * For example,
    * <ul>
    *   <li>"**<!--->/*.html" matches all paths that end with ".html"
+   *   <li>"**.html" matches the same.
    *   <li>"*.html" matches all single-component paths that end with ".html"
    *   <li>"foo/**<!--->/bar" matches all paths that start with a foo component,
    *     followed by zero or more other components and ending with bar.
@@ -292,7 +319,7 @@ public final class URLClassifierBuilder {
   public URLClassifierBuilder matchesPathGlobs(
       Iterable<? extends String> pathGlobs) {
     for (String pathGlob : pathGlobs) {
-      Optional<String> decPathGlob = PctDecode.of(pathGlob);
+      Optional<String> decPathGlob = Percent.decode(pathGlob);
       Preconditions.checkArgument(
           decPathGlob.isPresent(), "Invalid %-encoding in path glob", pathGlob);
       positivePathGlobs.add(pathGlob);
@@ -309,7 +336,7 @@ public final class URLClassifierBuilder {
   public URLClassifierBuilder notMatchesPathGlobs(
       Iterable<? extends String> pathGlobs) {
     for (String pathGlob : pathGlobs) {
-      Optional<String> decPathGlob = PctDecode.of(pathGlob);
+      Optional<String> decPathGlob = Percent.decode(pathGlob);
       Preconditions.checkArgument(
           decPathGlob.isPresent(), "Invalid %-encoding in path glob", pathGlob);
       negativePathGlobs.add(pathGlob);
@@ -449,7 +476,7 @@ final class URLClassifierImpl implements URLClassifier {
       return Classification.INVALID;
     }
     if (!matchesNULs && x.originalUrlText.indexOf('\0') >= 0) {
-      return Classification.NOT_A_MATCH;
+      return Classification.INVALID;
     }
 
     Scheme s = x.scheme;
@@ -464,7 +491,7 @@ final class URLClassifierImpl implements URLClassifier {
     }
     String path = x.getPath();
     if (path != null) {
-      Optional<String> decPathOpt = PctDecode.of(path);
+      Optional<String> decPathOpt = Percent.decode(path);
       if (!decPathOpt.isPresent()) {
         return Classification.INVALID;
       }

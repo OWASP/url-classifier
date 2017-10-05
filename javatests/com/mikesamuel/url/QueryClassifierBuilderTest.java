@@ -1,6 +1,6 @@
 package com.mikesamuel.url;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
@@ -28,7 +28,7 @@ public class QueryClassifierBuilderTest {
           ? Classification.MATCH
           : Classification.NOT_A_MATCH,
 
-          p.apply(URLValue.of(context, url)));
+          p.apply(URLValue.from(context, url)));
     }
 
     for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
@@ -36,13 +36,13 @@ public class QueryClassifierBuilderTest {
       assertEquals(
           i + ": " + url,
           Classification.INVALID,
-          p.apply(URLValue.of(context, url)));
+          p.apply(URLValue.from(context, url)));
     }
     for (String url : matchSet) {
       assertEquals(
           url,
           Classification.MATCH,
-          p.apply(URLValue.of(context, url)));
+          p.apply(URLValue.from(context, url)));
     }
   }
 
@@ -74,7 +74,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testRestrictivePolicy() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mayHaveKeys(Predicates.alwaysFalse())
             .mustHaveKeys("NONCE")
             .build(),
@@ -84,7 +84,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testNoKeys() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mayHaveKeys(Predicates.alwaysFalse())
             .build(),
         URLContext.DEFAULT,
@@ -98,7 +98,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testAllowAllAC() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mayHaveKeys("a", "c")
             .mustHaveKeys("a")
             .build(),
@@ -118,7 +118,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testDisallowRepeatingA() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mayHaveKeys("a", "c")
             .mayNotRepeatKeys("a")
             .mustHaveKeys("a")
@@ -140,7 +140,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testValueDecoding() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mustHaveKeys("a", "c")
             .valueMustMatch("a", hasValue("b"))
             .valueMustMatch("c", hasValue("d"))
@@ -158,7 +158,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testEncodedAmp() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
@@ -170,7 +170,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testEncodedMetas() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
@@ -182,7 +182,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testAboutSchemeFindsQuery() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mayHaveKeys("really")
             .mustHaveKeys("really")
             .build(),
@@ -194,7 +194,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testEq() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mustHaveKeys("=")
             .valueMustMatch("=", hasValue("="))
             .build(),
@@ -206,7 +206,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testQmarkInValue() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b?c"))
             .build(),
@@ -219,7 +219,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testSpaceInValue() throws Exception {
     runCommonTestsWith(
-        QueryClassifierBuilder.builder()
+        QueryClassifier.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b c"))
             .build(),

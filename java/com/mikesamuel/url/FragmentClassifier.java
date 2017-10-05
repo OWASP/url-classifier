@@ -7,6 +7,12 @@ import com.google.common.collect.ImmutableList;
 
 /** A URLClassifier that considers only the fragment portion. */
 public interface FragmentClassifier extends URLClassifier {
+
+  /** A new blank builder. */
+  public static FragmentClassifierBuilder builder() {
+    return new FragmentClassifierBuilder();
+  }
+
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.

@@ -395,7 +395,7 @@ public class Scheme {
   static final Optional<CharSequence> defaultDecodeContent(
       String schemeSpecificPart, PartRanges ranges) {
     if (ranges.contentLeft < 0) { return Optional.absent(); }
-    return PctDecode.of(
+    return Percent.decode(
         schemeSpecificPart, ranges.contentLeft, ranges.contentRight, false);
   }
 

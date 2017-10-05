@@ -4,13 +4,16 @@ import java.util.Arrays;
 
 import com.google.common.base.Optional;
 
-final class PctDecode {
-  static Optional<String> of(String s) {
-    Optional<CharSequence> csopt = of(s, 0, s.length(), false);
+/**
+ * Support for percent escaping.
+ */
+final class Percent {
+  static Optional<String> decode(String s) {
+    Optional<CharSequence> csopt = decode(s, 0, s.length(), false);
     return csopt.isPresent() ? Optional.of(csopt.get().toString()) : Optional.absent();
   }
 
-  static Optional<CharSequence> of(
+  static Optional<CharSequence> decode(
       CharSequence s, int left, int right, boolean formEncoded) {
     StringBuilder decoded = null;
     int writtenCursor = left;  // Position between left and right written to chars

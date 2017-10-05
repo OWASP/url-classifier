@@ -6,5 +6,5 @@ maven_jar(
 
 maven_jar(
     name = "junit",
-    artifact = "junit:junit-dep:4.10",
+    artifact = "junit:junit:4.12",
 )

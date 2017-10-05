@@ -32,13 +32,8 @@ public final class QueryClassifierBuilder {
   private Map<String, Predicate<? super Optional<String>>> valueClassifiers =
       Maps.newLinkedHashMap();
 
-  private QueryClassifierBuilder() {
+  QueryClassifierBuilder() {
     // Use static factory
-  }
-
-  /** A new blank builder. */
-  public static QueryClassifierBuilder builder() {
-    return new QueryClassifierBuilder();
   }
 
   /**
@@ -214,13 +209,13 @@ final class QueryClassifierImpl implements QueryClassifier {
           if (start < i) {
             int keyStart = start;
             int keyEnd = eq >= 0 ? eq : i;
-            Optional<CharSequence> keyOpt = PctDecode.of(
+            Optional<CharSequence> keyOpt = Percent.decode(
                 query, keyStart, keyEnd, true);
             if (!keyOpt.isPresent()) { return Classification.INVALID; }
             String key = keyOpt.get().toString();
             Optional<CharSequence> valueOpt = Optional.absent();
             if (eq >= 0) {
-              valueOpt = PctDecode.of(query, eq + 1, i, true);
+              valueOpt = Percent.decode(query, eq + 1, i, true);
               if (!valueOpt.isPresent()) { return Classification.INVALID; }
             }
             if (result == Classification.MATCH) {

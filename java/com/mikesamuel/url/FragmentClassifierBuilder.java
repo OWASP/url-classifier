@@ -15,13 +15,8 @@ public final class FragmentClassifierBuilder {
 
   static final URLClassifier MATCH_NO_URLS = URLClassifier.or();
 
-  private FragmentClassifierBuilder() {
+  FragmentClassifierBuilder() {
     // Use static factory
-  }
-
-  /** A new blank builder. */
-  public static FragmentClassifierBuilder builder() {
-    return new FragmentClassifierBuilder();
   }
 
   /**
@@ -100,7 +95,7 @@ final class FragmentClassifierImpl implements FragmentClassifier {
         && result == Classification.NOT_A_MATCH
         && !FragmentClassifierBuilder.MATCH_NO_URLS.equals(
             this.asRelativeUrlClassifier)) {
-      URLValue fragmentUrl = URLValue.of(
+      URLValue fragmentUrl = URLValue.from(
           // Explicitly do not use x's path.
           URLContext.DEFAULT, fragment.substring(1));
       switch (this.asRelativeUrlClassifier.apply(fragmentUrl)) {
