@@ -1,19 +1,19 @@
-# Per https://github.com/korfuri/bazel-travis
+# Per https://github.com/ixdy/bazel-rules_docker/blob/master/.travis.yml
 
+sudo: required
 dist: trusty
-
+language:
+  - java
+jdk:
+  - oraclejdk8  # Building Bazel requires JDK8.
 addons:
   apt:
     sources:
-      - ubuntu-toolchain-r-test
+      - sourceline: 'deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8'
+        key_url: 'https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg'
     packages:
-      - wget
-      - pkg-config
-
-before_install:
-  - wget https://github.com/bazelbuild/bazel/releases/download/0.3.1/bazel_0.3.1-linux-x86_64.deb
-  - sha256sum -c tools/bazel_0.3.1-linux-x86_64.deb.sha256
-  - sudo dpkg -i bazel_0.3.1-linux-x86_64.deb
+      - bazel
 
 script:
-  - bazel test //...
+  - bazel clean && bazel build //...
+  - bazel test --test_output=errors //...
