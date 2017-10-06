@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.owasp</groupId>
+  <artifactId>url</artifactId>
+  <packaging>jar</packaging>
+
+  <!--
+    When the version ends with "-SNAPSHOT", then `mvn deploy` moves it to
+    the snapshot directory instead of into staging proper.
+   -->
+  <version>1.0.0-SNAPSHOT</version>
+  <name>url-classifier</name>
+  <description>
+    Declarative syntax for defining sets of URLs. No need for
+    error-prone regexs.
+  </description>
+  <url>https://github.com/OWASP/url-classifier</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git://github.com/OWASP/url-classifier.git</connection>
+    <developerConnection>scm:git:git://github.com/OWASP/url-classifier.git</developerConnection>
+    <url>https://github.com/OWASP/url-classifier</url>
+  </scm>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/OWASP/url-classifier/issues</url>
+  </issueManagement>
+
+  <organization>
+    <name>OWASP</name>
+    <url>https://owasp.org</url>
+  </organization>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!-- Maven doesn't provide by it's hidden super pom a version, so enforce here -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>2.9</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.sonatype.plugins</groupId>
+        <artifactId>nexus-staging-maven-plugin</artifactId>
+        <version>1.6.8</version>
+        <extensions>true</extensions>
+        <configuration>
+          <serverId>ossrh</serverId>
+          <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+          <autoReleaseAfterClose>true</autoReleaseAfterClose>
+          <!-- This staging profile ID gleaned by logging in to
+               oss.sonatype.org, clicking "Staging Profiles" on the left,
+               selecting "com.mikesamuel", and extracting the most hexy
+               looking bit from the URL which looks like
+               https://oss.sonatype.org/#stagingProfiles;5fd62edf6679f6
+          -->
+          <stagingProfileId>5fd62edf6679f6</stagingProfileId>
+          <executions>
+            <execution>
+              <id>default-deploy</id>
+              <phase>deploy</phase>
+              <goals>
+                <goal>deploy</goal>
+              </goals>
+            </execution>
+          </executions>
+        </configuration>
+      </plugin>
+      <!-- For building the source jar. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.0.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- For building the javadoc jar. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.10.4</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <nohelp>true</nohelp>
+          <show>public</show>
+          <doctitle>URL Classifier</doctitle>
+          <additionalparam>-Xdoclint:-missing</additionalparam>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <developers>
+    <developer>
+      <id>mikesamuel</id>
+      <name>Mike Samuel</name>
+      <email>mikesamuel@gmail.com</email>
+    </developer>
+  </developers>
+
+  <mailingLists>
+    <mailingList>
+      <name>User Support List</name>
+      <!-- TODO -->
+    </mailingList>
+  </mailingLists>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>19.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.12</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <properties>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+
+    <project.build.resourceEncoding>UTF-8</project.build.resourceEncoding>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
+  <profiles>
+    <profile>
+      <id>release-sign-artifact</id>
+      <activation>
+        <property>
+          <name>performRelease</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.5</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
