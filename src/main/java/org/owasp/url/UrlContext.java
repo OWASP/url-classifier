@@ -52,8 +52,8 @@ public final class UrlContext {
     /** The default */
     STANDARDS_COMPLIANT,
     /**
-     * If you use this, please use {@link URLValue#urlText}
-     * not {@link URLValue#originalUrlText}.
+     * If you use this, please use {@link UrlValue#urlText}
+     * not {@link UrlValue#originalUrlText}.
      */
     BACK_TO_FORWARD,
     ;

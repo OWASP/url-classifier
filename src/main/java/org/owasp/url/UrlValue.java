@@ -92,7 +92,7 @@ public final class UrlValue {
      */
     RELATIVE_URL_MERGED_TO_ABSOLUTE,
     /**
-     * Per {@link URLContext.MicrosoftPathStrategy}, some backslashes were flipped to
+     * Per {@link UrlContext.MicrosoftPathStrategy}, some backslashes were flipped to
      * forward slashes.
      */
     FLIPPED_SLASHES,
