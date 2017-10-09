@@ -212,8 +212,17 @@ public final class URLValue {
     boolean flippedSlashes = false;
     switch (context.microsoftPathStrategy) {
       case BACK_TO_FORWARD:
-        refUrlText = refUrlText.replace('\\', '/');
-        flippedSlashes = !refUrlText.equals(originalUrlText);
+        int eos = Absolutizer.endOfScheme(refUrlText);
+        @SuppressWarnings("hiding")
+        Scheme scheme = null;
+        if (eos >= 0) {
+          scheme = context.absolutizer.schemes.schemeForName(
+              refUrlText.substring(0, eos - 1 /* ':' */));
+        }
+        if (scheme == null || scheme.isHierarchical) {
+          refUrlText = refUrlText.replace('\\', '/');
+          flippedSlashes = !refUrlText.equals(originalUrlText);
+        }
         break;
       case STANDARDS_COMPLIANT:
         break;

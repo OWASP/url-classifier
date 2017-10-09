@@ -34,6 +34,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.MediaType;
 
@@ -215,5 +216,17 @@ public final class URLValueTest {
         u.toString(),
         ImmutableSet.of(URLValue.URLSpecCornerCase.FLIPPED_SLASHES),
         u.cornerCases);
+
+    String jsUrl = "javascript:/\\./.test(0)";
+    u = URLValue.from(flippingContext, jsUrl);
+    assertEquals(jsUrl, u.urlText);
+    assertEquals("/\\./.test(0)", u.getRawContent());
+    assertEquals(Optional.of("/\\./.test(0)"), u.getDecodedContent());
+    assertEquals(u.toString(), ImmutableSet.of(), u.cornerCases);
+
+    String mailtoUrl = "mailto:\\\"\\\\f\\\\o\\\\o\\\"@domain.com";
+    u = URLValue.from(flippingContext, mailtoUrl);
+    assertEquals(mailtoUrl, u.urlText);
+    assertEquals(u.toString(), ImmutableSet.of(), u.cornerCases);
   }
 }
