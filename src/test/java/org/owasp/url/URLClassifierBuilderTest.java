@@ -37,81 +37,81 @@ import org.junit.Test;
 import com.google.common.collect.ImmutableList;
 
 @SuppressWarnings({"javadoc", "static-method"})
-public final class URLClassifierBuilderTest {
+public final class UrlClassifierBuilderTest {
 
   static final class TestBuilder {
-    private final URLClassifier c;
-    private final ImmutableList.Builder<URLValue> expectInvalid
+    private final UrlClassifier c;
+    private final ImmutableList.Builder<UrlValue> expectInvalid
         = ImmutableList.builder();
-    private final ImmutableList.Builder<URLValue> expectMatches
+    private final ImmutableList.Builder<UrlValue> expectMatches
         = ImmutableList.builder();
-    private final ImmutableList.Builder<URLValue> expectDoesNotMatch
+    private final ImmutableList.Builder<UrlValue> expectDoesNotMatch
         = ImmutableList.builder();
-    private URLContext context = URLContext.DEFAULT;
+    private UrlContext context = UrlContext.DEFAULT;
 
-    TestBuilder(URLClassifier c) {
+    TestBuilder(UrlClassifier c) {
       this.c = c;
     }
 
     TestBuilder expectInvalid(String... urlTexts) {
       for (String urlText : urlTexts) {
-        expectInvalid.add(URLValue.from(context, urlText));
+        expectInvalid.add(UrlValue.from(context, urlText));
       }
       return this;
     }
 
-    TestBuilder expectInvalid(URLValue... urlValues) {
+    TestBuilder expectInvalid(UrlValue... urlValues) {
       expectInvalid.addAll(Arrays.asList(urlValues));
       return this;
     }
 
     TestBuilder expectMatches(String... urlTexts) {
       for (String urlText : urlTexts) {
-        expectMatches.add(URLValue.from(context, urlText));
+        expectMatches.add(UrlValue.from(context, urlText));
       }
       return this;
     }
 
-    TestBuilder expectMatches(URLValue... urlValues) {
+    TestBuilder expectMatches(UrlValue... urlValues) {
       expectMatches.addAll(Arrays.asList(urlValues));
       return this;
     }
 
     TestBuilder expectDoesNotMatch(String... urlTexts) {
       for (String urlText : urlTexts) {
-        expectDoesNotMatch.add(URLValue.from(context, urlText));
+        expectDoesNotMatch.add(UrlValue.from(context, urlText));
       }
       return this;
     }
 
-    TestBuilder expectDoesNotMatch(URLValue... urlValues) {
+    TestBuilder expectDoesNotMatch(UrlValue... urlValues) {
       expectDoesNotMatch.addAll(Arrays.asList(urlValues));
       return this;
     }
 
-    TestBuilder useContext(URLContext newContext) {
+    TestBuilder useContext(UrlContext newContext) {
       this.context = newContext;
       return this;
     }
 
     TestBuilder useContext(String contextUrl) {
-      return this.useContext(new URLContext(
-          new Absolutizer(URLContext.DEFAULT.absolutizer.schemes, contextUrl)));
+      return this.useContext(new UrlContext(
+          new Absolutizer(UrlContext.DEFAULT.absolutizer.schemes, contextUrl)));
     }
 
     void run() {
-      Diagnostic.CollectingReceiver<URLValue> cr = Diagnostic.collecting(
+      Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.collecting(
           TestUtil.STDERR_RECEIVER);
       try {
-        for (URLValue x : expectInvalid.build()) {
+        for (UrlValue x : expectInvalid.build()) {
           cr.clear();
           assertEquals(debug(x), Classification.INVALID, c.apply(x, cr));
         }
-        for (URLValue x : expectMatches.build()) {
+        for (UrlValue x : expectMatches.build()) {
           cr.clear();
           assertEquals(debug(x), Classification.MATCH, c.apply(x, cr));
         }
-        for (URLValue x : expectDoesNotMatch.build()) {
+        for (UrlValue x : expectDoesNotMatch.build()) {
           cr.clear();
           assertEquals(debug(x), Classification.NOT_A_MATCH, c.apply(x, cr));
         }
@@ -124,7 +124,7 @@ public final class URLClassifierBuilderTest {
 
   @Test
   public void testUnconfiguredClassifier() {
-    new TestBuilder(URLClassifier.builder().build())
+    new TestBuilder(UrlClassifier.builder().build())
         .expectInvalid(
             "\0",
             "%2e%2E/%2e%2E/%2e%2E/etc/passwd"  // corner case
@@ -144,7 +144,7 @@ public final class URLClassifierBuilderTest {
   @Test
   public void testAllowHttpHttps() {
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
             .build())
         .expectInvalid(
@@ -169,7 +169,7 @@ public final class URLClassifierBuilderTest {
   @Test
   public void testFilterAuthorities() {
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
             .authority(
                 AuthorityClassifier.builder()
@@ -205,7 +205,7 @@ public final class URLClassifierBuilderTest {
   @Test
   public void testFilterPaths() {
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
             .pathGlob("**.html", "/foo/*", "/app/?")
             .notPathGlob("/foo/error")
@@ -253,7 +253,7 @@ public final class URLClassifierBuilderTest {
   public void testPathEscapingConventions() {
     // Escaping '?'
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/foo/%3f")
             .build())
@@ -263,7 +263,7 @@ public final class URLClassifierBuilderTest {
         .run();
     // Escaping '%'
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/foo/%253f")
             .build())
@@ -275,7 +275,7 @@ public final class URLClassifierBuilderTest {
         .run();
     // Escaping '*'
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/foo/%2A")
             .pathGlob("/bar/%2A%2A")
@@ -287,7 +287,7 @@ public final class URLClassifierBuilderTest {
         .run();
     // Escaping 'a' and 'A'
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/b%61r")
             .pathGlob("/B%41R")
@@ -302,7 +302,7 @@ public final class URLClassifierBuilderTest {
   @Test
   public final void testQueryClassifying() {
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
             .schemeData(MediaTypeClassifier.any())  // Data don't naturally have queries
             .query(QueryClassifier.builder()
@@ -334,7 +334,7 @@ public final class URLClassifierBuilderTest {
   @Test
   public final void testFragment() {
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
             .schemeData(MediaTypeClassifier.any())  // Data don't naturally have queries
             .query(QueryClassifier.builder()
@@ -366,7 +366,7 @@ public final class URLClassifierBuilderTest {
   @Test
   public final void testBrokenInputs() {
     new TestBuilder(
-        URLClassifier.builder()
+        UrlClassifier.builder()
         .schemeData(MediaTypeClassifier.any())
         .content(ContentClassifier.any())
         .build())
@@ -376,7 +376,7 @@ public final class URLClassifierBuilderTest {
 
   // TODO: simple content predicate with magic number check for gif
 
-  static String debug(URLValue x) {
+  static String debug(UrlValue x) {
     String escapedUrl = x.urlText
         .replace("\\", "\\\\")
         .replace("\0", "\\0")

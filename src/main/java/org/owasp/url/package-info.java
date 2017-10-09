@@ -28,13 +28,13 @@
 
 /**
  * A declarative syntax for
- * {@linkplain org.owasp.url.URLClassifier classifiers} (tri-state predicates)
- * over {@linkplain org.owasp.url.URLValue URL}s.
+ * {@linkplain org.owasp.url.UrlClassifier classifiers} (tri-state predicates)
+ * over {@linkplain org.owasp.url.UrlValue URL}s.
  *
  * <p>
- * {@link org.owasp.url.URLClassifierBuilder} allows building
- * {@link org.owasp.url.URLClassifier}s that map
- * {@link org.owasp.url.URLValue}s to {@link org.owasp.url.Classification}.
+ * {@link org.owasp.url.UrlClassifierBuilder} allows building
+ * {@link org.owasp.url.UrlClassifier}s that map
+ * {@link org.owasp.url.UrlValue}s to {@link org.owasp.url.Classification}.
  *
  * <p>
  * Sometimes it's useful to know why a URL did not match a classifier in which
@@ -42,7 +42,7 @@
  *
  * <p>
  * The other interfaces and classes are <tt>*ClassifierBuilder</tt>s that can be
- * used with {@link org.owasp.url.URLClassifierBuilder} to vet parts of a
+ * used with {@link org.owasp.url.UrlClassifierBuilder} to vet parts of a
  * URL or are mostly of interest when writing one's own classifier.
  */
 package org.owasp.url;

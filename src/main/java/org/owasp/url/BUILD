@@ -11,3 +11,11 @@ java_library(
     ],
     visibility = ["//visibility:public"],
 )
+
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "//:__subpackages__",
+    ])

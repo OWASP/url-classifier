@@ -44,7 +44,7 @@ import com.google.common.net.MediaType;
 /**
  * A URL reference that can be examined piecewise.
  */
-public final class URLValue {
+public final class UrlValue {
 
   /**
    * An oddity in the URL spec (STD 66/RFC 3986) that would
@@ -52,15 +52,15 @@ public final class URLValue {
    * for backwards compatibility or spec complexity.
    * <p>
    * If we rely on other URL consumers interpreting the
-   * {@link URLValue#originalUrlText original URL text} according to spec,
-   * (instead of using {@link URLValue#urlText} which is tweaked to avoid
+   * {@link UrlValue#originalUrlText original URL text} according to spec,
+   * (instead of using {@link UrlValue#urlText} which is tweaked to avoid
    * corner cases) then those consumers might behave in different/unintended
    * ways.
    * <p>
    * Additionally, different URL consumers come to different conclusions
    * about what the spec says in some cases.
    */
-  public enum URLSpecCornerCase {
+  public enum UrlSpecCornerCase {
     /**
      * When the special path components ({@code .} and {@code ..}) are
      * percent-encoded, different URL consumers behave in different ways.
@@ -99,7 +99,7 @@ public final class URLValue {
   }
 
   /** The context in which the URL is interpreted. */
-  public final URLContext context;
+  public final UrlContext context;
   /** The original URL text.  May be relative. */
   public final String originalUrlText;
 
@@ -107,7 +107,7 @@ public final class URLValue {
    * True if the authority component of the URL was not explicitly specified
    * in the original URL text and the authority is the placeholder authority.
    *
-   * @see URLContext#PLACEHOLDER_AUTHORITY
+   * @see UrlContext#PLACEHOLDER_AUTHORITY
    */
   public final boolean inheritsPlaceholderAuthority;
 
@@ -148,16 +148,16 @@ public final class URLValue {
    * Corner cases that might cause {@link #originalUrlText} to be
    * interpreted differently by different URL consumers.
    *
-   * @see URLClassifierBuilder#tolerate
+   * @see UrlClassifierBuilder#tolerate
    */
-  public final ImmutableSet<URLSpecCornerCase> cornerCases;
+  public final ImmutableSet<UrlSpecCornerCase> cornerCases;
 
   /**
    * @param context a context used to flesh out relative URLs.
    * @return a URL value with the given original text and whose
    *     urlText is an absolute URL.
    */
-  public static URLValue from(URLContext context, String originalUrlText) {
+  public static UrlValue from(UrlContext context, String originalUrlText) {
     String urlText = originalUrlText;
     switch (context.urlSource) {
       case HUMAN_READABLE_INPUT:
@@ -193,18 +193,18 @@ public final class URLValue {
       case MACHINE_READABLE_INPUT:
         break;
     }
-    return new URLValue(
+    return new UrlValue(
         Preconditions.checkNotNull(context),
         Preconditions.checkNotNull(urlText));
   }
 
   /** Uses the default context. */
-  public static URLValue from(String originalUrlText) {
-    return from(URLContext.DEFAULT, originalUrlText);
+  public static UrlValue from(String originalUrlText) {
+    return from(UrlContext.DEFAULT, originalUrlText);
   }
 
 
-  private URLValue(URLContext context, String originalUrlText) {
+  private UrlValue(UrlContext context, String originalUrlText) {
     this.context = context;
     this.originalUrlText = originalUrlText;
 
@@ -233,18 +233,18 @@ public final class URLValue {
     this.urlText = abs.absUrlText;
     this.ranges = abs.absUrlRanges;
     this.pathSimplificationReachedRootsParent = abs.pathSimplificationReachedRootsParent;
-    final int phLen = URLContext.PLACEHOLDER_AUTHORITY.length();
+    final int phLen = UrlContext.PLACEHOLDER_AUTHORITY.length();
     this.inheritsPlaceholderAuthority = this.ranges != null
         && abs.originalUrlRanges.authorityLeft < 0
         && this.ranges.authorityLeft >= 0
         && this.ranges.authorityRight - this.ranges.authorityLeft == phLen
-        && URLContext.PLACEHOLDER_AUTHORITY.regionMatches(
+        && UrlContext.PLACEHOLDER_AUTHORITY.regionMatches(
             0, this.urlText, abs.absUrlRanges.authorityLeft, phLen);
-    ImmutableSet<URLSpecCornerCase> allCornerCases = abs.cornerCases;
+    ImmutableSet<UrlSpecCornerCase> allCornerCases = abs.cornerCases;
     if (flippedSlashes) {
-      EnumSet<URLSpecCornerCase> ccs = EnumSet.noneOf(URLSpecCornerCase.class);
+      EnumSet<UrlSpecCornerCase> ccs = EnumSet.noneOf(UrlSpecCornerCase.class);
       ccs.addAll(allCornerCases);
-      ccs.add(URLSpecCornerCase.FLIPPED_SLASHES);
+      ccs.add(UrlSpecCornerCase.FLIPPED_SLASHES);
       allCornerCases = Sets.immutableEnumSet(ccs);
     }
     this.cornerCases = allCornerCases;
@@ -265,7 +265,7 @@ public final class URLValue {
 
   private Optional<Authority> authority;
   /** The decoded authority or null if none is available. */
-  public Authority getAuthority(Diagnostic.Receiver<? super URLValue> r) {
+  public Authority getAuthority(Diagnostic.Receiver<? super UrlValue> r) {
     if (authority == null) {
       authority = Optional.absent();
       if (getRawAuthority() != null) {
@@ -393,10 +393,10 @@ public final class URLValue {
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof URLValue)) {
+    if (!(o instanceof UrlValue)) {
       return false;
     }
-    URLValue that = (URLValue) o;
+    UrlValue that = (UrlValue) o;
     return this.originalUrlText.equals(that.originalUrlText)
         && this.context.equals(that.context);
   }
@@ -484,7 +484,7 @@ final class DataSchemeMediaTypeUtil {
         if (key == null || value == null) {
           return Optional.absent();
         }
-        value = maybeDecodeRFC822QuotedString(value);
+        value = maybeDecodeRfc822QuotedString(value);
         parameterValues.put(key, value);
       }
       try {
@@ -497,7 +497,7 @@ final class DataSchemeMediaTypeUtil {
     return Optional.of(mt);
   }
 
-  private static String maybeDecodeRFC822QuotedString(String tokenOrQuotedString) {
+  private static String maybeDecodeRfc822QuotedString(String tokenOrQuotedString) {
     int n = tokenOrQuotedString.length();
     if (n >= 2 && '"' == tokenOrQuotedString.charAt(0)
         && '"' == tokenOrQuotedString.charAt(n - 1)) {

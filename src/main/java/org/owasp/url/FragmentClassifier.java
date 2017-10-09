@@ -36,10 +36,10 @@ import com.google.common.collect.ImmutableList;
 /**
  * A URLClassifier that considers the fragment: <tt>http://example.com/<b>#fragment</b></tt>.
  *
- * <p>This may be used in a larger {@link URLClassifier} via
- * {@link URLClassifierBuilder#fragment}.
+ * <p>This may be used in a larger {@link UrlClassifier} via
+ * {@link UrlClassifierBuilder#fragment}.
  */
-public interface FragmentClassifier extends URLClassifier {
+public interface FragmentClassifier extends UrlClassifier {
 
   /** A new blank builder. */
   public static FragmentClassifierBuilder builder() {
@@ -65,7 +65,7 @@ public interface FragmentClassifier extends URLClassifier {
    * @return The disjunction of cs.
    */
   public static FragmentClassifier or(Iterable<? extends FragmentClassifier> cs) {
-    return URLClassifierOr.<FragmentClassifier>abstractOr(
+    return UrlClassifierOr.<FragmentClassifier>abstractOr(
         cs,
         FragmentClassifierOr.FP_FALSE,
         FragmentClassifierOr.FP_NEW);
@@ -82,13 +82,13 @@ final class AnyFragmentClassifier implements FragmentClassifier {
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     return Classification.MATCH;
   }
 }
 
 final class FragmentClassifierOr
-extends URLClassifierOr<FragmentClassifier> implements FragmentClassifier {
+extends UrlClassifierOr<FragmentClassifier> implements FragmentClassifier {
 
   static final FragmentClassifierOr FP_FALSE =
       new FragmentClassifierOr(ImmutableList.of());

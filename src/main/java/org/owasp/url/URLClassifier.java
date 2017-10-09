@@ -33,10 +33,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /**
- * Classifies {@linkplain URLValue URLs} as
+ * Classifies {@linkplain UrlValue URLs} as
  * {@linkplain Classification matching, not matching, or invalid}.
  */
-public interface URLClassifier {
+public interface UrlClassifier {
 
   /**
    * Classifies the URL as matching, not matching or structurally invalid.
@@ -46,11 +46,11 @@ public interface URLClassifier {
    *     Pass {@link Diagnostic.Receiver#NULL} if you only need the result.
    * @return the classification of x
    */
-  public Classification apply(URLValue x, Diagnostic.Receiver<? super URLValue> r);
+  public Classification apply(UrlValue x, Diagnostic.Receiver<? super UrlValue> r);
 
   /** A new blank builder. */
-  public static URLClassifierBuilder builder() {
-    return new URLClassifierBuilder();
+  public static UrlClassifierBuilder builder() {
+    return new UrlClassifierBuilder();
   }
 
   /**
@@ -60,7 +60,7 @@ public interface URLClassifier {
    * @param cs the operands.
    * @return The disjunction of cs.
    */
-  public static URLClassifier or(URLClassifier... cs) {
+  public static UrlClassifier or(UrlClassifier... cs) {
     return or(ImmutableList.copyOf(cs));
   }
 
@@ -71,39 +71,39 @@ public interface URLClassifier {
    * @param cs the operands.
    * @return The disjunction of cs.
    */
-  public static URLClassifier or(Iterable<? extends URLClassifier> cs) {
-    return URLClassifierOr.<URLClassifier>abstractOr(
+  public static UrlClassifier or(Iterable<? extends UrlClassifier> cs) {
+    return UrlClassifierOr.<UrlClassifier>abstractOr(
         cs,
-        URLClassifierOr.UP_FALSE,
-        URLClassifierOr.UP_NEW);
+        UrlClassifierOr.UP_FALSE,
+        UrlClassifierOr.UP_NEW);
   }
 }
 
-class URLClassifierOr<C extends URLClassifier> implements URLClassifier {
+class UrlClassifierOr<C extends UrlClassifier> implements UrlClassifier {
   final ImmutableList<C> cs;
 
-  static final URLClassifierOr<URLClassifier> UP_FALSE =
-      new URLClassifierOr<>(ImmutableList.of());
+  static final UrlClassifierOr<UrlClassifier> UP_FALSE =
+      new UrlClassifierOr<>(ImmutableList.of());
 
-  static final Function<ImmutableList<URLClassifier>, URLClassifier> UP_NEW =
-      new Function<ImmutableList<URLClassifier>, URLClassifier>() {
+  static final Function<ImmutableList<UrlClassifier>, UrlClassifier> UP_NEW =
+      new Function<ImmutableList<UrlClassifier>, UrlClassifier>() {
 
         @Override
-        public URLClassifier apply(ImmutableList<URLClassifier> cs) {
-          return new URLClassifierOr<>(cs);
+        public UrlClassifier apply(ImmutableList<UrlClassifier> cs) {
+          return new UrlClassifierOr<>(cs);
         }
 
       };
 
 
-  URLClassifierOr(ImmutableList<C> cs) {
+  UrlClassifierOr(ImmutableList<C> cs) {
     this.cs = cs;
   }
 
   @Override
-  public Classification apply(URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+  public Classification apply(UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     if (!cs.isEmpty()) {
-      Diagnostic.CollectingReceiver<? super URLValue> delayedR = Diagnostic.collecting(r);
+      Diagnostic.CollectingReceiver<? super UrlValue> delayedR = Diagnostic.collecting(r);
       for (C c : cs) {
         Classification cl = c.apply(x, delayedR);
         switch (cl) {
@@ -123,16 +123,16 @@ class URLClassifierOr<C extends URLClassifier> implements URLClassifier {
   }
 
   @SuppressWarnings("unchecked")
-  static <C extends URLClassifier>
+  static <C extends UrlClassifier>
   C abstractOr(
       Iterable<? extends C> cs, C zero,
       Function<ImmutableList<C>, C> maker) {
     ImmutableList.Builder<C> b = ImmutableList.builder();
     for (C c : cs) {
-      if (c instanceof URLClassifierOr<?>) {
+      if (c instanceof UrlClassifierOr<?>) {
         // Unsound except by convention that
         // URLClassifier<C> instanceof C
-        b.addAll(((URLClassifierOr<C>) c).cs);
+        b.addAll(((UrlClassifierOr<C>) c).cs);
       } else {
         b.add(c);
       }
@@ -173,7 +173,7 @@ class URLClassifierOr<C extends URLClassifier> implements URLClassifier {
     if (getClass() != obj.getClass()) {
       return false;
     }
-    URLClassifierOr<?> other = (URLClassifierOr<?>) obj;
+    UrlClassifierOr<?> other = (UrlClassifierOr<?>) obj;
     if (cs == null) {
       if (other.cs != null) {
         return false;

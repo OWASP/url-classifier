@@ -79,7 +79,7 @@ public final class Authority {
   }
 
   static Authority decode(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     String auth = x.getRawAuthority();
     if (auth == null) {  // Nothing to do here
       return null;

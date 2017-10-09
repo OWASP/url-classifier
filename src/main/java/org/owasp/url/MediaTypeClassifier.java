@@ -35,9 +35,9 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * A classifier over media types like ones found in {@code data:media/type;...}.
- * @see URLValue#getContentMediaType()
+ * @see UrlValue#getContentMediaType()
  */
-public interface MediaTypeClassifier extends URLClassifier {
+public interface MediaTypeClassifier extends UrlClassifier {
 
   /**
    * A classifier that passes when applying cs in order results in a match before a
@@ -59,7 +59,7 @@ public interface MediaTypeClassifier extends URLClassifier {
    */
   public static MediaTypeClassifier or(
       Iterable<? extends MediaTypeClassifier> cs) {
-    return URLClassifierOr.<MediaTypeClassifier>abstractOr(
+    return UrlClassifierOr.<MediaTypeClassifier>abstractOr(
         cs,
         MediaTypeClassifierOr.MT_FALSE,
         MediaTypeClassifierOr.MT_NEW);
@@ -76,13 +76,13 @@ final class AnyMediaTypeClassifier implements MediaTypeClassifier {
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     return Classification.MATCH;
   }
 }
 
 final class MediaTypeClassifierOr
-extends URLClassifierOr<MediaTypeClassifier> implements MediaTypeClassifier {
+extends UrlClassifierOr<MediaTypeClassifier> implements MediaTypeClassifier {
 
   static final MediaTypeClassifierOr MT_FALSE =
       new MediaTypeClassifierOr(ImmutableList.of());

@@ -230,7 +230,7 @@ final class QueryClassifierImpl implements QueryClassifier {
   }
 
   @Override
-  public Classification apply(URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+  public Classification apply(UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     Set<String> keysSeen = new HashSet<>();
     String query = x.getQuery();
 

@@ -43,10 +43,10 @@ public final class AuthorityClassifierBuilderTest {
 
   private static void runCommonTestsWith(
       AuthorityClassifier p,
-      URLContext context,
+      UrlContext context,
       String... shouldMatch) {
 
-    Diagnostic.CollectingReceiver<URLValue> cr = Diagnostic.collecting(
+    Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.collecting(
         TestUtil.STDERR_RECEIVER);
 
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
@@ -55,7 +55,7 @@ public final class AuthorityClassifierBuilderTest {
       for (int i = 0; i < MAY_MATCH.size(); ++i) {
         cr.clear();
         String url = MAY_MATCH.get(i);
-        URLValue inp = URLValue.from(context, url);
+        UrlValue inp = UrlValue.from(context, url);
         assertEquals(
             i + ": " + url,
 
@@ -69,7 +69,7 @@ public final class AuthorityClassifierBuilderTest {
       for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
         cr.clear();
         String url = MUST_BE_INVALID.get(i);
-        URLValue inp = URLValue.from(context, url);
+        UrlValue inp = UrlValue.from(context, url);
         assertEquals(
             i + ": " + url,
             Classification.INVALID,
@@ -80,7 +80,7 @@ public final class AuthorityClassifierBuilderTest {
         assertEquals(
             url,
             Classification.MATCH,
-            p.apply(URLValue.from(context, url), cr));
+            p.apply(UrlValue.from(context, url), cr));
       }
       cr.clear();
     } finally {
@@ -159,7 +159,7 @@ public final class AuthorityClassifierBuilderTest {
   public void testUnconfiguredClassifier() throws Exception {
     runCommonTestsWith(
         AuthorityClassifier.builder().build(),
-        URLContext.DEFAULT);
+        UrlContext.DEFAULT);
   }
 
   @Test
@@ -168,7 +168,7 @@ public final class AuthorityClassifierBuilderTest {
         AuthorityClassifier.builder()
            .host("localhost")
            .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "http://localhost/",
         "http://loc%61lhost/",
         "http://localhos%74/");
@@ -176,7 +176,7 @@ public final class AuthorityClassifierBuilderTest {
         AuthorityClassifier.builder()
            .hostGlob("localhost")
            .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "http://localhost/",
         "http://loc%61lhost/",
         "http://localhos%74/");
@@ -188,7 +188,7 @@ public final class AuthorityClassifierBuilderTest {
         AuthorityClassifier.builder()
            .host("xn--fsq")  // Mandarin for "example"
            .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "https://\u4f8b/\ud83d\ude00#",
         "https://xn--fsq/%F0%9F%98%80#",
         "https://%E4%BE%8B/\ud83d\ude00#");
@@ -201,7 +201,7 @@ public final class AuthorityClassifierBuilderTest {
            .host("example", "example.com")
            .port(443)
            .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "htTpS://example/",
         "https://example.com/",
         "blob:https://example.com/uuid");
@@ -214,7 +214,7 @@ public final class AuthorityClassifierBuilderTest {
            .host("example", "example.com")
            .port(443, 80)
            .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "http://example/",
         "http://example.com:80/",
         "//example.com/",
@@ -239,7 +239,7 @@ public final class AuthorityClassifierBuilderTest {
 
                })
            .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "htTpS://example/",
         "https://example.com/",
         "blob:https://example.com/uuid");
@@ -260,7 +260,7 @@ public final class AuthorityClassifierBuilderTest {
 
            })
            .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "http://example/",
         "http://example.com:80/",
         "//example.com/",
@@ -285,12 +285,12 @@ public final class AuthorityClassifierBuilderTest {
 
                 })
             .build(),
-        new URLContext(new Absolutizer(
+        new UrlContext(new Absolutizer(
             new SchemeLookupTable(ImmutableList.of(
                 new Scheme(
                     ImmutableSet.of("ssh"), true, 22,
                     Scheme.SchemePart.AUTHORITY, Scheme.SchemePart.PATH))),
-                URLContext.DEFAULT.absolutizer.contextUrl)),
+                UrlContext.DEFAULT.absolutizer.contextUrl)),
         "ssh://user@server/project.git",
         "ssh://user@sErvEr:22/project.git",
         "ssh://u%73er@server/project.git");
@@ -314,7 +314,7 @@ public final class AuthorityClassifierBuilderTest {
 
                 })
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         // ssh is a hierarchical scheme, so these particular examples work
         // out of the box.
         "ssh://user@server/project.git",

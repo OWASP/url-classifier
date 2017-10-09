@@ -33,13 +33,13 @@ import com.google.common.base.Preconditions;
 /**
  * The context in which a URL is encountered.
  */
-public final class URLContext {
+public final class UrlContext {
   /** A base URL against which relative URLs will be resolved. */
   public final Absolutizer absolutizer;
   /** @see MicrosoftPathStrategy */
   public final MicrosoftPathStrategy microsoftPathStrategy;
-  /** @see URLSource */
-  public final URLSource urlSource;
+  /** @see UrlSource */
+  public final UrlSource urlSource;
 
   /**
    * Microsoft uses back-slash ('\\') to separate file components and many
@@ -67,7 +67,7 @@ public final class URLContext {
   /**
    * The kind of entity providing the URL text.
    */
-  public enum URLSource {
+  public enum UrlSource {
     /**
      * The URL came from a message crafted for consumption by a machine.
      * For example, a HTTP header, or an HTML attribute.
@@ -88,7 +88,7 @@ public final class URLContext {
 
     /** */
     @SuppressWarnings("hiding")
-    public static final URLSource DEFAULT = MACHINE_READABLE_INPUT;
+    public static final UrlSource DEFAULT = MACHINE_READABLE_INPUT;
   }
 
 
@@ -96,41 +96,41 @@ public final class URLContext {
    * A placeholder for an unknown authority.
    * <p>
    * Per https://tools.ietf.org/html/rfc2606 this will not be assigned, and
-   * the {@link URLValue#inheritsPlaceholderAuthority} bit unambiguously
+   * the {@link UrlValue#inheritsPlaceholderAuthority} bit unambiguously
    * represents
    */
   public static final String PLACEHOLDER_AUTHORITY = "example.org.";
 
   /** A context that may be used to resolve */
-  public static final URLContext DEFAULT = new URLContext(new Absolutizer(
+  public static final UrlContext DEFAULT = new UrlContext(new Absolutizer(
       SchemeLookupTable.BUILTINS_ONLY,
       "http://" + PLACEHOLDER_AUTHORITY + "/"));
 
   /** */
-  public URLContext(Absolutizer absolutizer) {
-    this(absolutizer, MicrosoftPathStrategy.DEFAULT, URLSource.DEFAULT);
+  public UrlContext(Absolutizer absolutizer) {
+    this(absolutizer, MicrosoftPathStrategy.DEFAULT, UrlSource.DEFAULT);
   }
 
-  private URLContext(
+  private UrlContext(
       Absolutizer absolutizer,
       MicrosoftPathStrategy mps,
-      URLSource urlSource) {
+      UrlSource urlSource) {
     this.absolutizer = Preconditions.checkNotNull(absolutizer);
     this.microsoftPathStrategy = Preconditions.checkNotNull(mps);
     this.urlSource = Preconditions.checkNotNull(urlSource);
   }
 
   /** @see MicrosoftPathStrategy */
-  public URLContext with(MicrosoftPathStrategy mps) {
+  public UrlContext with(MicrosoftPathStrategy mps) {
     return mps == this.microsoftPathStrategy
         ? this
-        : new URLContext(absolutizer, mps, urlSource);
+        : new UrlContext(absolutizer, mps, urlSource);
   }
 
-  /** @see URLSource */
-  public URLContext with(URLSource us) {
+  /** @see UrlSource */
+  public UrlContext with(UrlSource us) {
     return us == this.urlSource
         ? this
-        : new URLContext(absolutizer, microsoftPathStrategy, us);
+        : new UrlContext(absolutizer, microsoftPathStrategy, us);
   }
 }

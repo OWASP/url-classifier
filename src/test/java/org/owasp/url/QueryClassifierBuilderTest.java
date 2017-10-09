@@ -43,10 +43,10 @@ public class QueryClassifierBuilderTest {
 
   private static void runCommonTestsWith(
       QueryClassifier p,
-      URLContext context,
+      UrlContext context,
       String... shouldMatch) {
 
-    Diagnostic.CollectingReceiver<URLValue> cr = Diagnostic.collecting(
+    Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.collecting(
         TestUtil.STDERR_RECEIVER);
 
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
@@ -62,7 +62,7 @@ public class QueryClassifierBuilderTest {
             ? Classification.MATCH
             : Classification.NOT_A_MATCH,
 
-            p.apply(URLValue.from(context, url), cr));
+            p.apply(UrlValue.from(context, url), cr));
       }
 
       for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
@@ -71,14 +71,14 @@ public class QueryClassifierBuilderTest {
         assertEquals(
             i + ": " + url,
             Classification.INVALID,
-            p.apply(URLValue.from(context, url), cr));
+            p.apply(UrlValue.from(context, url), cr));
       }
       for (String url : matchSet) {
         cr.clear();
         assertEquals(
             url,
             Classification.MATCH,
-            p.apply(URLValue.from(context, url), cr));
+            p.apply(UrlValue.from(context, url), cr));
       }
       cr.clear();
     } finally {
@@ -118,7 +118,7 @@ public class QueryClassifierBuilderTest {
             .mayHaveKeys(Predicates.alwaysFalse())
             .mustHaveKeys("NONCE")
             .build(),
-        URLContext.DEFAULT);
+        UrlContext.DEFAULT);
   }
 
   @Test
@@ -127,7 +127,7 @@ public class QueryClassifierBuilderTest {
         QueryClassifier.builder()
             .mayHaveKeys(Predicates.alwaysFalse())
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "",
         "?",
         "javascript:foo?a=b:x=y",
@@ -142,7 +142,7 @@ public class QueryClassifierBuilderTest {
             .mayHaveKeys("a", "c")
             .mustHaveKeys("a")
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?a=b&c=d",
         "?%61=%62&%63=%64",
         "?a=b%26c=d",
@@ -163,7 +163,7 @@ public class QueryClassifierBuilderTest {
             .mayNotRepeatKeys("a")
             .mustHaveKeys("a")
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?a=b&c=d",
         "?%61=%62&%63=%64",
         "?a=b%26c=d",
@@ -185,7 +185,7 @@ public class QueryClassifierBuilderTest {
             .valueMustMatch("a", hasValue("b"))
             .valueMustMatch("c", hasValue("d"))
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?a=b&c=d",
         "?%61=%62&%63=%64"
         //"?a=b%26c=d",  // No key c
@@ -202,7 +202,7 @@ public class QueryClassifierBuilderTest {
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?a=b%26c=d"
         );
   }
@@ -214,7 +214,7 @@ public class QueryClassifierBuilderTest {
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?a=b%26c=d"
         );
   }
@@ -226,7 +226,7 @@ public class QueryClassifierBuilderTest {
             .mayHaveKeys("really")
             .mustHaveKeys("really")
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "about:blank?really=no"
         );
   }
@@ -238,7 +238,7 @@ public class QueryClassifierBuilderTest {
             .mustHaveKeys("=")
             .valueMustMatch("=", hasValue("="))
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?%3D=%3d"
         );
   }
@@ -250,7 +250,7 @@ public class QueryClassifierBuilderTest {
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b?c"))
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?a=b?c",
         "?a=b%3fc"
         );
@@ -263,7 +263,7 @@ public class QueryClassifierBuilderTest {
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b c"))
             .build(),
-        URLContext.DEFAULT,
+        UrlContext.DEFAULT,
         "?a=b+c"
         );
   }

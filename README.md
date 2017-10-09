@@ -19,7 +19,7 @@ import org.owasp.url.*;
 class C {
 
   /** We define a classifier with a declarative syntax */
-  static final URLClassifier CLASSIFIER = URLClassifier.builder()
+  static final UrlClassifier CLASSIFIER = UrlClassifier.builder()
       // We want to allow HTTP and HTTPS for this example
       .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
       .authority(
@@ -33,7 +33,7 @@ class C {
 
   void f() {
     // At runtime, we build a URL value.
-    URLValue url = URLValue.from("http://example.com/");
+    UrlValue url = UrlValue.from("http://example.com/");
 
     Classification c = CLASSIFIER.apply(
         url

@@ -85,8 +85,8 @@ public final class Absolutizer {
   Result absolutize(String refUrlText) {
     int eos = endOfScheme(refUrlText);
     boolean pathSimplificationReachedRootsParent = false;
-    EnumSet<URLValue.URLSpecCornerCase> cornerCases = EnumSet.noneOf(
-        URLValue.URLSpecCornerCase.class);
+    EnumSet<UrlValue.UrlSpecCornerCase> cornerCases = EnumSet.noneOf(
+        UrlValue.UrlSpecCornerCase.class);
 
     Scheme scheme;
     PartRanges refUrlRanges, absUrlRanges;
@@ -200,7 +200,7 @@ public final class Absolutizer {
 //      System.err.println("absPathLeft=" + absPathLeft + ", partBuf=" + partBuf);
       if (absPathLeft >= 0) {
         if (fixupEncodedDots(partBuf, absPathLeft)) {
-          cornerCases.add(URLValue.URLSpecCornerCase.ENCODED_DOT_PATH_SEGMENST);
+          cornerCases.add(UrlValue.UrlSpecCornerCase.ENCODED_DOT_PATH_SEGMENST);
         }
         pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(
             partBuf, absPathLeft, cornerCases);
@@ -273,7 +273,7 @@ public final class Absolutizer {
         && absUrlRanges.pathRight - absUrlRanges.pathLeft >= 2
         && '/' == absUrlText.charAt(absUrlRanges.pathLeft)
         && '/' == absUrlText.charAt(absUrlRanges.pathLeft + 1)) {
-      cornerCases.add(URLValue.URLSpecCornerCase.PATH_AUTHORITY_AMBIGUITY);
+      cornerCases.add(UrlValue.UrlSpecCornerCase.PATH_AUTHORITY_AMBIGUITY);
     }
 
     return new Result(
@@ -301,14 +301,14 @@ public final class Absolutizer {
     /** */
     public final boolean pathSimplificationReachedRootsParent;
 
-    public final ImmutableSet<URLValue.URLSpecCornerCase> cornerCases;
+    public final ImmutableSet<UrlValue.UrlSpecCornerCase> cornerCases;
 
     /** */
     public Result(
         Scheme scheme, String originalUrlText,
         PartRanges originalUrlRanges, String absUrlText, PartRanges absUrlRanges,
         boolean pathSimplificationReachedRootsParent,
-        EnumSet<URLValue.URLSpecCornerCase> cornerCases) {
+        EnumSet<UrlValue.UrlSpecCornerCase> cornerCases) {
       this.scheme = scheme;
       this.originalUrlText = originalUrlText;
       this.originalUrlRanges = originalUrlRanges;
@@ -339,7 +339,7 @@ public final class Absolutizer {
    *     would have been removed because of ".." handling were it present.
    */
   static boolean removeDotSegmentsInPlace(StringBuilder path, int left,
-      EnumSet<URLValue.URLSpecCornerCase> cornerCases) {
+      EnumSet<UrlValue.UrlSpecCornerCase> cornerCases) {
     // The code below has excerpts from the spec interspersed.
     // The "input buffer" and "output buffer" referred to in the spec
     // are both just regions of path.
@@ -439,7 +439,7 @@ public final class Absolutizer {
             // navigation.
             inputBufferStart += 1;
             cornerCases.add(
-                URLValue.URLSpecCornerCase.RELATIVE_URL_MERGED_TO_ABSOLUTE);
+                UrlValue.UrlSpecCornerCase.RELATIVE_URL_MERGED_TO_ABSOLUTE);
           }
           continue;
         }

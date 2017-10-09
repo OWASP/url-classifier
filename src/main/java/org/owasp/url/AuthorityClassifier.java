@@ -36,10 +36,10 @@ import com.google.common.collect.ImmutableList;
 /**
  * A URL classifier that looks at the {@link Authority}: <tt>http://<b>example.com<b>/</tt>.
  *
- * <p>This may be used in a larger {@link URLClassifier} via
- * {@link URLClassifierBuilder#authority}.
+ * <p>This may be used in a larger {@link UrlClassifier} via
+ * {@link UrlClassifierBuilder#authority}.
  */
-public interface AuthorityClassifier extends URLClassifier {
+public interface AuthorityClassifier extends UrlClassifier {
 
   /** A new blank builder. */
   public static AuthorityClassifierBuilder builder() {
@@ -65,7 +65,7 @@ public interface AuthorityClassifier extends URLClassifier {
    * @return The disjunction of cs.
    */
   public static AuthorityClassifier or(Iterable<? extends AuthorityClassifier> cs) {
-    return URLClassifierOr.<AuthorityClassifier>abstractOr(
+    return UrlClassifierOr.<AuthorityClassifier>abstractOr(
         cs,
         AuthorityClassifierOr.AP_FALSE,
         AuthorityClassifierOr.AP_NEW);
@@ -82,13 +82,13 @@ final class AnyAuthorityClassifier implements AuthorityClassifier {
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     return Classification.MATCH;
   }
 }
 
 final class AuthorityClassifierOr
-extends URLClassifierOr<AuthorityClassifier> implements AuthorityClassifier {
+extends UrlClassifierOr<AuthorityClassifier> implements AuthorityClassifier {
 
   static final AuthorityClassifierOr AP_FALSE =
       new AuthorityClassifierOr(ImmutableList.of());

@@ -31,11 +31,11 @@ package org.owasp.url;
 final class TestUtil {
 
   /** Logs messages found during test failure to stderr. */
-  static final Diagnostic.Receiver<URLValue> STDERR_RECEIVER =
-      new Diagnostic.Receiver<URLValue>() {
+  static final Diagnostic.Receiver<UrlValue> STDERR_RECEIVER =
+      new Diagnostic.Receiver<UrlValue>() {
 
     @Override
-    public void note(Diagnostic d, URLValue context) {
+    public void note(Diagnostic d, UrlValue context) {
       Class<? extends Diagnostic> dc = d.getClass();
       String cn = d.getClass().getSimpleName();
       if ("Diagnostics".equals(cn) && dc.isMemberClass()) {

@@ -44,10 +44,10 @@ import com.google.common.base.Predicates;
  * @see FragmentClassifier#builder
  */
 public final class FragmentClassifierBuilder {
-  private URLClassifier asRelativeUrlPred;
+  private UrlClassifier asRelativeUrlPred;
   private Predicate<? super Optional<String>> fragmentPred;
 
-  static final URLClassifier MATCH_NO_URLS = URLClassifier.or();
+  static final UrlClassifier MATCH_NO_URLS = UrlClassifier.or();
 
   FragmentClassifierBuilder() {
     // Use static factory
@@ -60,7 +60,7 @@ public final class FragmentClassifierBuilder {
    */
   public FragmentClassifier build() {
     Predicate<? super Optional<String>> fragmentClassifier = this.fragmentPred;
-    URLClassifier asRelativeUrlClassifier = this.asRelativeUrlPred;
+    UrlClassifier asRelativeUrlClassifier = this.asRelativeUrlPred;
     if (fragmentClassifier == null) {
       fragmentClassifier = Predicates.alwaysFalse();
     }
@@ -98,10 +98,10 @@ public final class FragmentClassifierBuilder {
    * <p>This requires that the fragment will be present, so to allow
    * no fragment OR the fragments described above, use FragmentClassifier.or(...).
    */
-  public FragmentClassifierBuilder matchAsURL(URLClassifier p) {
+  public FragmentClassifierBuilder matchAsUrl(UrlClassifier p) {
     this.asRelativeUrlPred = this.asRelativeUrlPred == null
         ? p
-        : URLClassifier.or(this.asRelativeUrlPred, p);
+        : UrlClassifier.or(this.asRelativeUrlPred, p);
     return this;
   }
 }
@@ -109,18 +109,18 @@ public final class FragmentClassifierBuilder {
 
 final class FragmentClassifierImpl implements FragmentClassifier {
   final Predicate<? super Optional<String>> fragmentClassifier;
-  final URLClassifier asRelativeUrlClassifier;
+  final UrlClassifier asRelativeUrlClassifier;
 
   FragmentClassifierImpl(
       Predicate<? super Optional<String>> fragmentClassifier,
-      URLClassifier asRelativeUrlClassifier) {
+      UrlClassifier asRelativeUrlClassifier) {
     this.fragmentClassifier = Preconditions.checkNotNull(fragmentClassifier);
     this.asRelativeUrlClassifier = Preconditions.checkNotNull(asRelativeUrlClassifier);
   }
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     String fragment = x.getFragment();
     Classification result = Classification.NOT_A_MATCH;
     Optional<String> fragmentOpt = Optional.fromNullable(fragment);
@@ -131,9 +131,9 @@ final class FragmentClassifierImpl implements FragmentClassifier {
         && result == Classification.NOT_A_MATCH
         && !FragmentClassifierBuilder.MATCH_NO_URLS.equals(
             this.asRelativeUrlClassifier)) {
-      URLValue fragmentUrl = URLValue.from(
+      UrlValue fragmentUrl = UrlValue.from(
           // Explicitly do not use x's path.
-          URLContext.DEFAULT, fragment.substring(1));
+          UrlContext.DEFAULT, fragment.substring(1));
       switch (this.asRelativeUrlClassifier.apply(fragmentUrl, r)) {
         case INVALID:
           return Classification.INVALID;

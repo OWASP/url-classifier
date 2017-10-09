@@ -102,10 +102,10 @@ import com.google.common.collect.Sets;
  * embedded content include "{@code about:}", "{@code blob:}", "{@code data:}", and
  * "{@code javascript:}".
  *
- * @see URLClassifier#builder
+ * @see UrlClassifier#builder
  */
-public final class URLClassifierBuilder {
-  URLClassifierBuilder() {
+public final class UrlClassifierBuilder {
+  UrlClassifierBuilder() {
     // Use static factory
   }
 
@@ -115,16 +115,16 @@ public final class URLClassifierBuilder {
    * allow/match methods will not affect previously built classifiers.
    * @return this
    */
-  public URLClassifier build() {
-    EnumSet<URLClassifierImpl.GlobalFlag> flags =
-        EnumSet.noneOf(URLClassifierImpl.GlobalFlag.class);
+  public UrlClassifier build() {
+    EnumSet<UrlClassifierImpl.GlobalFlag> flags =
+        EnumSet.noneOf(UrlClassifierImpl.GlobalFlag.class);
     if (this.allowPathsThatReachRootsParent) {
-      flags.add(URLClassifierImpl.GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
+      flags.add(UrlClassifierImpl.GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
     }
-    if (this.matchesNULs) {
-      flags.add(URLClassifierImpl.GlobalFlag.ALLOW_NULS);
+    if (this.matchesNuls) {
+      flags.add(UrlClassifierImpl.GlobalFlag.ALLOW_NULS);
     }
-    ImmutableSet<URLValue.URLSpecCornerCase> toleratedCornerCaseSet =
+    ImmutableSet<UrlValue.UrlSpecCornerCase> toleratedCornerCaseSet =
         Sets.immutableEnumSet(this.toleratedCornerCases);
     ImmutableSet<Scheme> allowedSchemeSet = allowedSchemes.build();
     MediaTypeClassifier mtc = mediaTypeClassifier != null
@@ -151,7 +151,7 @@ public final class URLClassifierBuilder {
         ? contentClassifier
         : ContentClassifier.any();
 
-    return new URLClassifierImpl(
+    return new UrlClassifierImpl(
         flags,
         toleratedCornerCaseSet,
         allowedSchemeSet,
@@ -167,10 +167,10 @@ public final class URLClassifierBuilder {
 
 
   //// Flags that affect multiple sub-classifiers.
-  private boolean matchesNULs = false;
+  private boolean matchesNuls = false;
   private boolean allowPathsThatReachRootsParent = false;
-  private final EnumSet<URLValue.URLSpecCornerCase> toleratedCornerCases =
-      EnumSet.noneOf(URLValue.URLSpecCornerCase.class);
+  private final EnumSet<UrlValue.UrlSpecCornerCase> toleratedCornerCases =
+      EnumSet.noneOf(UrlValue.UrlSpecCornerCase.class);
 
   /**
    * URLs with NULs are a common problem case.
@@ -183,27 +183,27 @@ public final class URLClassifierBuilder {
    * @param allow true to allow NULs.
    * @return this
    */
-  public URLClassifierBuilder nuls(boolean allow) {
-    this.matchesNULs = allow;
+  public UrlClassifierBuilder nuls(boolean allow) {
+    this.matchesNuls = allow;
     return this;
   }
 
   /**
    * If not enabled (the default), apply(x) will return INVALID for
-   * {@linkplain URLValue#pathSimplificationReachedRootsParent overlong paths} like
+   * {@linkplain UrlValue#pathSimplificationReachedRootsParent overlong paths} like
    * "{@code ../../../...}".
    *
    * <p>These paths are rejected as INVALId by default.
    *
    * <p>It is safe to enable this if you plan on substituting
-   * {@link URLValue#urlText} for {@link URLValue#originalUrlText}
+   * {@link UrlValue#urlText} for {@link UrlValue#originalUrlText}
    * in your output, but not if you plan on using the original text
    * or other computations have already made assumptions based on it.
    *
    * @param enable true to tolerate.
    * @return this
    */
-  public URLClassifierBuilder rootParent(boolean enable) {
+  public UrlClassifierBuilder rootParent(boolean enable) {
     this.allowPathsThatReachRootsParent = enable;
     return this;
   }
@@ -215,7 +215,7 @@ public final class URLClassifierBuilder {
    * @param cornerCases to tolerate.  Unioned with previous calls' arguments.
    * @return this
    */
-  public URLClassifierBuilder tolerate(URLValue.URLSpecCornerCase... cornerCases) {
+  public UrlClassifierBuilder tolerate(UrlValue.UrlSpecCornerCase... cornerCases) {
     return tolerate(Arrays.asList(cornerCases));
   }
 
@@ -226,9 +226,9 @@ public final class URLClassifierBuilder {
    * @param cornerCases to tolerate.  Unioned with previous calls' arguments.
    * @return this
    */
-  public URLClassifierBuilder tolerate(
-      Iterable<? extends URLValue.URLSpecCornerCase> cornerCases) {
-    for (URLValue.URLSpecCornerCase cornerCase : cornerCases) {
+  public UrlClassifierBuilder tolerate(
+      Iterable<? extends UrlValue.UrlSpecCornerCase> cornerCases) {
+    for (UrlValue.UrlSpecCornerCase cornerCase : cornerCases) {
       this.toleratedCornerCases.add(cornerCase);
     }
     return this;
@@ -246,7 +246,7 @@ public final class URLClassifierBuilder {
    * @param schemes to white-list.
    * @return this
    */
-  public URLClassifierBuilder scheme(Scheme... schemes) {
+  public UrlClassifierBuilder scheme(Scheme... schemes) {
     return scheme(Arrays.asList(schemes));
   }
   /**
@@ -256,7 +256,7 @@ public final class URLClassifierBuilder {
    * @param schemes to white-list.
    * @return this
    */
-  public URLClassifierBuilder scheme(Iterable<? extends Scheme> schemes) {
+  public UrlClassifierBuilder scheme(Iterable<? extends Scheme> schemes) {
     this.allowedSchemes.addAll(schemes);
     return this;
   }
@@ -270,7 +270,7 @@ public final class URLClassifierBuilder {
    * @param c will be applied to any data: URLs media type.
    * @return this
    */
-  public URLClassifierBuilder schemeData(MediaTypeClassifier c) {
+  public UrlClassifierBuilder schemeData(MediaTypeClassifier c) {
     this.allowedSchemes.add(BuiltinScheme.DATA);
     this.mediaTypeClassifier = this.mediaTypeClassifier == null
         ? c
@@ -290,7 +290,7 @@ public final class URLClassifierBuilder {
    * @param ac receives the URL when it's time to check the authority.
    * @return this
    */
-  public URLClassifierBuilder authority(AuthorityClassifier ac) {
+  public UrlClassifierBuilder authority(AuthorityClassifier ac) {
     this.authorityClassifier = this.authorityClassifier == null
         ? ac
         : AuthorityClassifier.or(this.authorityClassifier, ac);
@@ -329,7 +329,7 @@ public final class URLClassifierBuilder {
    *      the path must match at least one of these globs for the URL to match.
    * @return this
    */
-  public URLClassifierBuilder pathGlob(String... pathGlobs) {
+  public UrlClassifierBuilder pathGlob(String... pathGlobs) {
     return pathGlob(ImmutableList.copyOf(pathGlobs));
   }
   /**
@@ -339,7 +339,7 @@ public final class URLClassifierBuilder {
    *      the path must match at least one of these globs for the URL to match.
    * @return this
    */
-  public URLClassifierBuilder pathGlob(
+  public UrlClassifierBuilder pathGlob(
       Iterable<? extends String> pathGlobs) {
     for (String pathGlob : pathGlobs) {
       Optional<String> decPathGlob = Percent.decode(pathGlob);
@@ -355,7 +355,7 @@ public final class URLClassifierBuilder {
    * @param pathGlobs if any of these matches the URL's path, the URL will not match.
    * @return this
    */
-  public URLClassifierBuilder notPathGlob(String... pathGlobs) {
+  public UrlClassifierBuilder notPathGlob(String... pathGlobs) {
     return notPathGlob(ImmutableList.copyOf(pathGlobs));
   }
   /**
@@ -364,7 +364,7 @@ public final class URLClassifierBuilder {
    * @param pathGlobs if any of these matches the URL's path, the URL will not match.
    * @return this
    */
-  public URLClassifierBuilder notPathGlob(
+  public UrlClassifierBuilder notPathGlob(
       Iterable<? extends String> pathGlobs) {
     for (String pathGlob : pathGlobs) {
       Optional<String> decPathGlob = Percent.decode(pathGlob);
@@ -384,7 +384,7 @@ public final class URLClassifierBuilder {
    * @param qc is applied to the URL when it's time to check the query portion.
    * @return this
    */
-  public URLClassifierBuilder query(QueryClassifier qc) {
+  public UrlClassifierBuilder query(QueryClassifier qc) {
     this.queryClassifier = this.queryClassifier == null
         ? qc
         : QueryClassifier.or(this.queryClassifier, qc);
@@ -396,7 +396,7 @@ public final class URLClassifierBuilder {
    * @param qc is applied to the URL when it's time to check the query portion.
    * @return this
    */
-  public URLClassifierBuilder notQuery(QueryClassifier qc) {
+  public UrlClassifierBuilder notQuery(QueryClassifier qc) {
     return query(new NotQueryClassifier(qc));
   }
   static final class NotQueryClassifier implements QueryClassifier {
@@ -408,7 +408,7 @@ public final class URLClassifierBuilder {
 
     @Override
     public Classification apply(
-        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+        UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
       return qc.apply(x, Diagnostic.Receiver.NULL).invert();
     }
   }
@@ -422,7 +422,7 @@ public final class URLClassifierBuilder {
    * @param fc is applied to the URL when it's time to check the fragment.
    * @return this
    */
-  public URLClassifierBuilder fragment(FragmentClassifier fc) {
+  public UrlClassifierBuilder fragment(FragmentClassifier fc) {
     this.fragmentClassifier = this.fragmentClassifier == null
         ? fc
         : FragmentClassifier.or(this.fragmentClassifier, fc);
@@ -434,7 +434,7 @@ public final class URLClassifierBuilder {
    * @param fc is applied to the URL when it's time to check the fragment.
    * @return this
    */
-  public URLClassifierBuilder notFragment(
+  public UrlClassifierBuilder notFragment(
       FragmentClassifier fc) {
     return fragment(new NotFragmentClassifier(fc));
   }
@@ -447,7 +447,7 @@ public final class URLClassifierBuilder {
 
     @Override
     public Classification apply(
-        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+        UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
       return fc.apply(x, Diagnostic.Receiver.NULL).invert();
     }
   }
@@ -466,7 +466,7 @@ public final class URLClassifierBuilder {
    * @param c is applied to the URL when it's time to check the content.
    * @return this
    */
-  public URLClassifierBuilder content(ContentClassifier c) {
+  public UrlClassifierBuilder content(ContentClassifier c) {
     this.contentClassifier = this.contentClassifier == null
         ? c
         : ContentClassifier.or(this.contentClassifier, c);
@@ -474,10 +474,10 @@ public final class URLClassifierBuilder {
   }
 }
 
-final class URLClassifierImpl implements URLClassifier {
-  final boolean matchesNULs;
+final class UrlClassifierImpl implements UrlClassifier {
+  final boolean matchesNuls;
   final boolean allowPathsThatReachRootsParent;
-  final ImmutableSet<URLValue.URLSpecCornerCase> toleratedCornerCaseSet;
+  final ImmutableSet<UrlValue.UrlSpecCornerCase> toleratedCornerCaseSet;
   final ImmutableSet<Scheme> allowedSchemeSet;
   final MediaTypeClassifier mediaTypeClassifier;
   final AuthorityClassifier authorityClassifier;
@@ -487,9 +487,9 @@ final class URLClassifierImpl implements URLClassifier {
   final FragmentClassifier fragmentClassifier;
   final ContentClassifier contentClassifier;
 
-  public URLClassifierImpl(
+  UrlClassifierImpl(
       EnumSet<GlobalFlag> flags,
-      ImmutableSet<URLValue.URLSpecCornerCase> toleratedCornerCaseSet,
+      ImmutableSet<UrlValue.UrlSpecCornerCase> toleratedCornerCaseSet,
       ImmutableSet<Scheme> allowedSchemeSet,
       MediaTypeClassifier mediaTypeClassifier,
       AuthorityClassifier authorityClassifier,
@@ -498,7 +498,7 @@ final class URLClassifierImpl implements URLClassifier {
       QueryClassifier queryClassifier,
       FragmentClassifier fragmentClassifier,
       ContentClassifier contentClassifier) {
-    this.matchesNULs = flags.contains(GlobalFlag.ALLOW_NULS);
+    this.matchesNuls = flags.contains(GlobalFlag.ALLOW_NULS);
     this.allowPathsThatReachRootsParent = flags.contains(
         GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
     this.toleratedCornerCaseSet = toleratedCornerCaseSet;
@@ -534,15 +534,15 @@ final class URLClassifierImpl implements URLClassifier {
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
-    Diagnostic.CollectingReceiver<? super URLValue> cr =
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
+    Diagnostic.CollectingReceiver<? super UrlValue> cr =
         Diagnostic.collecting(r);
 
     if (!this.toleratedCornerCaseSet.containsAll(x.cornerCases)) {
       r.note(Diagnostics.UNTOLERATED_CORNER_CASE, x);
       return Classification.INVALID;
     }
-    if (!matchesNULs && x.originalUrlText.indexOf('\0') >= 0) {
+    if (!matchesNuls && x.originalUrlText.indexOf('\0') >= 0) {
       r.note(Diagnostics.NULS, x);
       return Classification.INVALID;
     }

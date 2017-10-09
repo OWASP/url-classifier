@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableList;
 /**
  * A URLClassifier that considers the query: <tt>http://example.com/<b>?key=value</b></tt>.
  */
-public interface QueryClassifier extends URLClassifier {
+public interface QueryClassifier extends UrlClassifier {
 
   /** A new blank builder. */
   public static QueryClassifierBuilder builder() {
@@ -60,7 +60,7 @@ public interface QueryClassifier extends URLClassifier {
    * @return The disjunction of cs.
    */
   public static QueryClassifier or(Iterable<? extends QueryClassifier> cs) {
-    return URLClassifierOr.<QueryClassifier>abstractOr(
+    return UrlClassifierOr.<QueryClassifier>abstractOr(
       cs,
       QueryClassifierOr.QP_FALSE,
       QueryClassifierOr.QP_NEW);
@@ -77,13 +77,13 @@ final class AnyQueryClassifier implements QueryClassifier {
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     return Classification.MATCH;
   }
 }
 
 final class QueryClassifierOr
-extends URLClassifierOr<QueryClassifier> implements QueryClassifier {
+extends UrlClassifierOr<QueryClassifier> implements QueryClassifier {
 
   static final QueryClassifierOr QP_FALSE =
       new QueryClassifierOr(ImmutableList.of());

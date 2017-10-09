@@ -35,9 +35,9 @@ import com.google.common.collect.ImmutableList;
  * A URL classifier that checks the content and content-metadata portions
  * of a non-hierarchical URL.
  *
- * @see URLValue#getDecodedContent()
+ * @see UrlValue#getDecodedContent()
  */
-public interface ContentClassifier extends URLClassifier {
+public interface ContentClassifier extends UrlClassifier {
 
   /**
    * A classifier that passes when applying cs in order results in a match before a
@@ -58,7 +58,7 @@ public interface ContentClassifier extends URLClassifier {
    * @return The disjunction of cs.
    */
   public static ContentClassifier or(Iterable<? extends ContentClassifier> cs) {
-    return URLClassifierOr.abstractOr(
+    return UrlClassifierOr.abstractOr(
         cs, ContentClassifierOr.FP_FALSE,
         new Function<ImmutableList<ContentClassifier>, ContentClassifier>() {
 
@@ -83,13 +83,13 @@ final class AnyContentClassifier implements ContentClassifier {
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     return Classification.MATCH;
   }
 }
 
 final class ContentClassifierOr
-extends URLClassifierOr<ContentClassifier> implements ContentClassifier {
+extends UrlClassifierOr<ContentClassifier> implements ContentClassifier {
 
   static final ContentClassifierOr FP_FALSE =
       new ContentClassifierOr(ImmutableList.of());

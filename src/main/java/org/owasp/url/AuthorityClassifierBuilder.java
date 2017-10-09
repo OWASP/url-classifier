@@ -274,7 +274,7 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
 
   @Override
   public Classification apply(
-      URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     Authority auth = x.getAuthority(r);
     if (auth == null) {
       if (x.ranges.authorityLeft >= 0 || x.scheme.naturallyHasAuthority) {

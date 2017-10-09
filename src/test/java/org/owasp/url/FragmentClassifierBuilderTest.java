@@ -41,10 +41,10 @@ public final class FragmentClassifierBuilderTest {
 
   private static void assertFragmentClassification(
       Classification want, String inputUrl, FragmentClassifier p) {
-    Diagnostic.CollectingReceiver<URLValue> receiver = Diagnostic.collecting(
+    Diagnostic.CollectingReceiver<UrlValue> receiver = Diagnostic.collecting(
         TestUtil.STDERR_RECEIVER);
     Classification got = p.apply(
-        URLValue.from(URLContext.DEFAULT, inputUrl),
+        UrlValue.from(UrlContext.DEFAULT, inputUrl),
         receiver);
     if (!want.equals(got)) {
       receiver.flush();
@@ -76,13 +76,13 @@ public final class FragmentClassifierBuilderTest {
           Classification.NOT_A_MATCH,
           inputUrl,
           FragmentClassifier.builder()
-              .matchAsURL(
-                  new URLClassifier() {
+              .matchAsUrl(
+                  new UrlClassifier() {
 
                     @Override
                     public Classification apply(
-                        URLValue x,
-                        Diagnostic.Receiver<? super URLValue> r) {
+                        UrlValue x,
+                        Diagnostic.Receiver<? super UrlValue> r) {
                       return Classification.MATCH;
                     }
 
@@ -115,12 +115,12 @@ public final class FragmentClassifierBuilderTest {
           Classification.MATCH,
           inputUrl,
           FragmentClassifier.builder()
-              .matchAsURL(
-                  new URLClassifier() {
+              .matchAsUrl(
+                  new UrlClassifier() {
 
                     @Override
                     public Classification apply(
-                        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+                        UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
                       assertEquals(
                           "http://example.org./foo", x.urlText);
                       assertTrue(x.inheritsPlaceholderAuthority);
@@ -159,12 +159,12 @@ public final class FragmentClassifierBuilderTest {
           Classification.MATCH,
           inputUrl,
           FragmentClassifier.builder()
-              .matchAsURL(
-                  new URLClassifier() {
+              .matchAsUrl(
+                  new UrlClassifier() {
 
                     @Override
                     public Classification apply(
-                        URLValue x, Diagnostic.Receiver<? super URLValue> r) {
+                        UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
                       return x.getRawPath().equals("/bar/baz")
                           ? Classification.MATCH
                           : Classification.NOT_A_MATCH;
