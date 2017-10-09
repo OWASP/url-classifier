@@ -8,7 +8,9 @@ Declarative syntax for defining sets of URLs.  No need for error-prone regexs.
 
 ## <a name="usage"></a>Usage
 
-### Java
+### Java <sub><sup>([javadoc][javadoc])</sup></sub>
+
+[javadoc]: http://static.javadoc.io/org.owasp/url/1.0.0/org/owasp/url/package-summary.html#package.description
 
 ```java
 // Classes are all defined under org.owasp.url
@@ -32,14 +34,14 @@ class C {
   void f() {
     // At runtime, we build a URL value.
     URLValue url = URLValue.from("http://example.com/");
-    
+
     Classification c = CLASSIFIER.apply(
         url
         // If we want an explanation of why classification failed
         // we can connect diagnostics to our logs.
         Diagnostic.Receiver.NULL);
-    
-    // We can switch on the result 
+
+    // We can switch on the result.
     switch (c) {
       case MATCH:
         // ...
@@ -61,15 +63,16 @@ class C {
 ## <a name="problem"></a>Problem
 
 Matching URLs with regular expressions is hard.
-Even experienced programmers who are familiar with the URL spec produce code like `/http:\/\/example.com/`
-which spuriously matches unintended URLs like
+Even experienced programmers who are familiar with the URL spec
+produce patterns like `/http:\/\/example.com/` which spuriously
+matches unintended URLs:
 
 -  `http://example.com.evil.com/`
 -  `http://example.com@evil.com/`
 -  `http://example_com/`
 -  `javascript:alert(1)//http://example.com`
 
-while failing to match simple variants that were probably oversights:
+while failing to match simple variants that probably should:
 
 -  `HTTP://example.com/` which uses a ucase scheme
 -  `http://EXAMPLE.com/` which uses a ucase hostname
