@@ -28,11 +28,6 @@
 
 package org.owasp.url;
 
-import java.util.Arrays;
-
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-
 /**
  * A URL classifier that looks at the {@link Authority}: <tt>http://<b>example.com<b>/</tt>.
  *
@@ -40,71 +35,5 @@ import com.google.common.collect.ImmutableList;
  * {@link UrlClassifierBuilder#authority}.
  */
 public interface AuthorityClassifier extends UrlClassifier {
-
-  /** A new blank builder. */
-  public static AuthorityClassifierBuilder builder() {
-    return new AuthorityClassifierBuilder();
-  }
-
-  /**
-   * A classifier that passes when applying cs in order results in a match before a
-   * classification of INVALID.
-   *
-   * @param cs the operands.
-   * @return The disjunction of cs.
-   */
-  public static AuthorityClassifier or(AuthorityClassifier... cs) {
-    return or(Arrays.asList(cs));
-  }
-
-  /**
-   * A classifier that passes when applying cs in order results in a match before a
-   * classification of INVALID.
-   *
-   * @param cs the operands.
-   * @return The disjunction of cs.
-   */
-  public static AuthorityClassifier or(Iterable<? extends AuthorityClassifier> cs) {
-    return UrlClassifierOr.<AuthorityClassifier>abstractOr(
-        cs,
-        AuthorityClassifierOr.AP_FALSE,
-        AuthorityClassifierOr.AP_NEW);
-  }
-
-  /** A classifier that matches all inputs. */
-  public static AuthorityClassifier any() {
-    return AnyAuthorityClassifier.INSTANCE;
-  }
-}
-
-final class AnyAuthorityClassifier implements AuthorityClassifier {
-  static final AnyAuthorityClassifier INSTANCE = new AnyAuthorityClassifier();
-
-  @Override
-  public Classification apply(
-      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
-    return Classification.MATCH;
-  }
-}
-
-final class AuthorityClassifierOr
-extends UrlClassifierOr<AuthorityClassifier> implements AuthorityClassifier {
-
-  static final AuthorityClassifierOr AP_FALSE =
-      new AuthorityClassifierOr(ImmutableList.of());
-
-  static final Function<ImmutableList<AuthorityClassifier>, AuthorityClassifier> AP_NEW =
-      new Function<ImmutableList<AuthorityClassifier>, AuthorityClassifier>() {
-
-        @Override
-        public AuthorityClassifier apply(ImmutableList<AuthorityClassifier> cs) {
-          return new AuthorityClassifierOr(cs);
-        }
-
-      };
-
-  AuthorityClassifierOr(ImmutableList<AuthorityClassifier> cs) {
-    super(cs);
-  }
-
+  // Marker interface
 }

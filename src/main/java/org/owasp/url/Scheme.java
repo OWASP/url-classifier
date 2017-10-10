@@ -73,7 +73,7 @@ public class Scheme {
 
   /** An unknown scheme that may be used for hierarchical URLs. */
   public static final Scheme UNKNOWN = new Scheme(
-      ImmutableSet.of(),
+      ImmutableSet.<String>of(),
       true, -1, SchemePart.AUTHORITY, SchemePart.PATH, SchemePart.QUERY) {
     @Override
     public String toString() {

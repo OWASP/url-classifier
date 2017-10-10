@@ -38,7 +38,11 @@ import com.google.common.base.Optional;
 final class Percent {
   static Optional<String> decode(String s) {
     Optional<CharSequence> csopt = decode(s, 0, s.length(), false);
-    return csopt.isPresent() ? Optional.of(csopt.get().toString()) : Optional.absent();
+    if (csopt.isPresent()) {
+      return Optional.of(csopt.get().toString());
+    } else {
+      return Optional.absent();
+    }
   }
 
   static Optional<CharSequence> decode(
@@ -119,7 +123,7 @@ final class Percent {
       return Optional.of(s.subSequence(left, right));
     }
 
-    return Optional.of(decoded.append(s, writtenCursor, right));
+    return Optional.<CharSequence>of(decoded.append(s, writtenCursor, right));
   }
 
   private static int pctHex2(CharSequence s, int i, int limit) {

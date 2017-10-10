@@ -81,29 +81,28 @@ public interface Diagnostic {
 
     /** Replay then clear. */
     public abstract void flush();
-  }
 
-
-  /**
-   * A receiver that collects diagnostics while waiting to see whether a larger
-   * operation fails.
-   *
-   * @param r the underlying receiver to notify when flushing.
-   * @param <T> The type of the context value passed to {@link Receiver#note}.
-   * @return a receiver that will collect diagnostics until replayed onto r.
-   */
-  @SuppressWarnings("unchecked")
-  public static <T> CollectingReceiver<T> collecting(Receiver<T> r) {
-    if (r == NullReceiver.INSTANCE) {
-      // This cast is unsound, but safe since all NullReceiver operations
-      // are null-ops.
-      // Returning null receiver allows code that wants to avoid
-      // spending time figuring out exactly which diagnostic to show to
-      // first test whether anyone is on the other end of the receiver
-      // by checking whether it is the null receiver.
-      return (CollectingReceiver<T>) NullReceiver.INSTANCE;
+    /**
+     * A receiver that collects diagnostics while waiting to see whether a larger
+     * operation fails.
+     *
+     * @param r the underlying receiver to notify when flushing.
+     * @param <T> The type of the context value passed to {@link Receiver#note}.
+     * @return a receiver that will collect diagnostics until replayed onto r.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> CollectingReceiver<T> from(Receiver<T> r) {
+      if (r == NullReceiver.INSTANCE) {
+        // This cast is unsound, but safe since all NullReceiver operations
+        // are null-ops.
+        // Returning null receiver allows code that wants to avoid
+        // spending time figuring out exactly which diagnostic to show to
+        // first test whether anyone is on the other end of the receiver
+        // by checking whether it is the null receiver.
+        return (CollectingReceiver<T>) NullReceiver.INSTANCE;
+      }
+      return new CollectingReceiverImpl<T>(r);
     }
-    return new CollectingReceiverImpl<>(r);
   }
 }
 

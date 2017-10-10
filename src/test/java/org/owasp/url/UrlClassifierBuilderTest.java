@@ -100,7 +100,7 @@ public final class UrlClassifierBuilderTest {
     }
 
     void run() {
-      Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.collecting(
+      Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.CollectingReceiver.from(
           TestUtil.STDERR_RECEIVER);
       try {
         for (UrlValue x : expectInvalid.build()) {
@@ -124,7 +124,7 @@ public final class UrlClassifierBuilderTest {
 
   @Test
   public void testUnconfiguredClassifier() {
-    new TestBuilder(UrlClassifier.builder().build())
+    new TestBuilder(UrlClassifiers.builder().build())
         .expectInvalid(
             "\0",
             "%2e%2E/%2e%2E/%2e%2E/etc/passwd"  // corner case
@@ -144,7 +144,7 @@ public final class UrlClassifierBuilderTest {
   @Test
   public void testAllowHttpHttps() {
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
             .build())
         .expectInvalid(
@@ -169,10 +169,10 @@ public final class UrlClassifierBuilderTest {
   @Test
   public void testFilterAuthorities() {
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
             .authority(
-                AuthorityClassifier.builder()
+                AuthorityClassifiers.builder()
                     .hostGlob("*.example.net")
                     .build())
             .build())
@@ -205,7 +205,7 @@ public final class UrlClassifierBuilderTest {
   @Test
   public void testFilterPaths() {
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
             .pathGlob("**.html", "/foo/*", "/app/?")
             .notPathGlob("/foo/error")
@@ -253,7 +253,7 @@ public final class UrlClassifierBuilderTest {
   public void testPathEscapingConventions() {
     // Escaping '?'
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/foo/%3f")
             .build())
@@ -263,7 +263,7 @@ public final class UrlClassifierBuilderTest {
         .run();
     // Escaping '%'
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/foo/%253f")
             .build())
@@ -275,7 +275,7 @@ public final class UrlClassifierBuilderTest {
         .run();
     // Escaping '*'
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/foo/%2A")
             .pathGlob("/bar/%2A%2A")
@@ -287,7 +287,7 @@ public final class UrlClassifierBuilderTest {
         .run();
     // Escaping 'a' and 'A'
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/b%61r")
             .pathGlob("/B%41R")
@@ -302,10 +302,10 @@ public final class UrlClassifierBuilderTest {
   @Test
   public final void testQueryClassifying() {
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
-            .schemeData(MediaTypeClassifier.any())  // Data don't naturally have queries
-            .query(QueryClassifier.builder()
+            .schemeData(MediaTypeClassifiers.any())  // Data don't naturally have queries
+            .query(QueryClassifiers.builder()
                 .mayHaveKeys("a", "b", "c")
                 .mustHaveKeys("x")
                 .build())
@@ -334,10 +334,10 @@ public final class UrlClassifierBuilderTest {
   @Test
   public final void testFragment() {
     new TestBuilder(
-        UrlClassifier.builder()
+        UrlClassifiers.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
-            .schemeData(MediaTypeClassifier.any())  // Data don't naturally have queries
-            .query(QueryClassifier.builder()
+            .schemeData(MediaTypeClassifiers.any())  // Data don't naturally have queries
+            .query(QueryClassifiers.builder()
                 .mayHaveKeys("a", "b", "c")
                 .mustHaveKeys("x")
                 .build())
@@ -366,9 +366,9 @@ public final class UrlClassifierBuilderTest {
   @Test
   public final void testBrokenInputs() {
     new TestBuilder(
-        UrlClassifier.builder()
-        .schemeData(MediaTypeClassifier.any())
-        .content(ContentClassifier.any())
+        UrlClassifiers.builder()
+        .schemeData(MediaTypeClassifiers.any())
+        .content(ContentClassifiers.any())
         .build())
     .expectInvalid("data:text/plain;base64")
     .run();

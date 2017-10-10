@@ -38,7 +38,7 @@ public final class SchemeLookupTable {
 
   /** */
   public static final SchemeLookupTable BUILTINS_ONLY =
-      new SchemeLookupTable(ImmutableList.of());
+      new SchemeLookupTable(ImmutableList.<Scheme>of());
 
   /**
    * @param additionalSchemes any schemes beyond the builtins to recognize.

@@ -54,7 +54,7 @@ import com.google.common.net.InternetDomainName;
 /**
  * Builder for {@link AuthorityClassifier}s.
  *
- * @see AuthorityClassifier#builder
+ * @see AuthorityClassifiers#builder
  */
 public final class AuthorityClassifierBuilder {
   private final ImmutableSet.Builder<Inet4Address> ipv4s = ImmutableSet.builder();
@@ -588,6 +588,6 @@ final class Trie<T extends Comparable<T>, V> {
       }
     }
 
-    return new Trie<>(b.build(), value);
+    return new Trie<T, V>(b.build(), value);
   }
 }

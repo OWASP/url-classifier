@@ -41,7 +41,7 @@ public final class FragmentClassifierBuilderTest {
 
   private static void assertFragmentClassification(
       Classification want, String inputUrl, FragmentClassifier p) {
-    Diagnostic.CollectingReceiver<UrlValue> receiver = Diagnostic.collecting(
+    Diagnostic.CollectingReceiver<UrlValue> receiver = Diagnostic.CollectingReceiver.from(
         TestUtil.STDERR_RECEIVER);
     Classification got = p.apply(
         UrlValue.from(UrlContext.DEFAULT, inputUrl),
@@ -59,23 +59,23 @@ public final class FragmentClassifierBuilderTest {
       assertFragmentClassification(
           Classification.NOT_A_MATCH,
           inputUrl,
-          FragmentClassifier.builder().build());
+          FragmentClassifiers.builder().build());
       assertFragmentClassification(
           Classification.MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .match(Predicates.equalTo(Optional.<String>absent()))
               .build());
       assertFragmentClassification(
           Classification.NOT_A_MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .match(Predicates.equalTo(Optional.of("#foo")))
               .build());
       assertFragmentClassification(
           Classification.NOT_A_MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .matchAsUrl(
                   new UrlClassifier() {
 
@@ -98,23 +98,23 @@ public final class FragmentClassifierBuilderTest {
       assertFragmentClassification(
           Classification.NOT_A_MATCH,
           inputUrl,
-          FragmentClassifier.builder().build());
+          FragmentClassifiers.builder().build());
       assertFragmentClassification(
           Classification.NOT_A_MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .match(Predicates.equalTo(Optional.<String>absent()))
               .build());
       assertFragmentClassification(
           Classification.MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .match(Predicates.equalTo(Optional.of("#foo")))
               .build());
       assertFragmentClassification(
           Classification.MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .matchAsUrl(
                   new UrlClassifier() {
 
@@ -142,23 +142,23 @@ public final class FragmentClassifierBuilderTest {
       assertFragmentClassification(
           Classification.NOT_A_MATCH,
           inputUrl,
-          FragmentClassifier.builder().build());
+          FragmentClassifiers.builder().build());
       assertFragmentClassification(
           Classification.NOT_A_MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .match(Predicates.equalTo(Optional.<String>absent()))
               .build());
       assertFragmentClassification(
           Classification.MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .match(Predicates.equalTo(Optional.of("#foo/../bar/baz")))
               .build());
       assertFragmentClassification(
           Classification.MATCH,
           inputUrl,
-          FragmentClassifier.builder()
+          FragmentClassifiers.builder()
               .matchAsUrl(
                   new UrlClassifier() {
 

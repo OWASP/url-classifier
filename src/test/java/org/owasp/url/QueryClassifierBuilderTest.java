@@ -46,7 +46,7 @@ public class QueryClassifierBuilderTest {
       UrlContext context,
       String... shouldMatch) {
 
-    Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.collecting(
+    Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.CollectingReceiver.from(
         TestUtil.STDERR_RECEIVER);
 
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
@@ -114,7 +114,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testRestrictivePolicy() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mayHaveKeys(Predicates.alwaysFalse())
             .mustHaveKeys("NONCE")
             .build(),
@@ -124,7 +124,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testNoKeys() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mayHaveKeys(Predicates.alwaysFalse())
             .build(),
         UrlContext.DEFAULT,
@@ -138,7 +138,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testAllowAllAC() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mayHaveKeys("a", "c")
             .mustHaveKeys("a")
             .build(),
@@ -158,7 +158,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testDisallowRepeatingA() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mayHaveKeys("a", "c")
             .mayNotRepeatKeys("a")
             .mustHaveKeys("a")
@@ -180,7 +180,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testValueDecoding() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mustHaveKeys("a", "c")
             .valueMustMatch("a", hasValue("b"))
             .valueMustMatch("c", hasValue("d"))
@@ -198,7 +198,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testEncodedAmp() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
@@ -210,7 +210,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testEncodedMetas() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b&c=d"))
             .build(),
@@ -222,7 +222,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testAboutSchemeFindsQuery() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mayHaveKeys("really")
             .mustHaveKeys("really")
             .build(),
@@ -234,7 +234,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testEq() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mustHaveKeys("=")
             .valueMustMatch("=", hasValue("="))
             .build(),
@@ -246,7 +246,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testQmarkInValue() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b?c"))
             .build(),
@@ -259,7 +259,7 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testSpaceInValue() throws Exception {
     runCommonTestsWith(
-        QueryClassifier.builder()
+        QueryClassifiers.builder()
             .mustHaveKeys("a")
             .valueMustMatch("a", hasValue("b c"))
             .build(),
@@ -269,7 +269,7 @@ public class QueryClassifierBuilderTest {
   }
 
 
-  private static Predicate<Optional<String>> hasValue(String want) {
+  private static Predicate<Optional<String>> hasValue(final String want) {
     return new Predicate<Optional<String>>() {
 
       @Override

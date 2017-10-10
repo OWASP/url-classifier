@@ -51,7 +51,7 @@ import com.google.common.collect.Maps;
  * <p>For example, the query "{@code ?a=b%20c&a=d&e}" specifies the
  * key value pairs {@code [("a", "b c"), ("a", "d"), ("e", absent)]}.
  *
- * @see QueryClassifier#builder
+ * @see QueryClassifiers#builder
  */
 public final class QueryClassifierBuilder {
   private ImmutableSet.Builder<String> mayKeys = ImmutableSet.builder();
@@ -73,18 +73,24 @@ public final class QueryClassifierBuilder {
    */
   public QueryClassifier build() {
     ImmutableSet<String> mayKeySet = mayKeys.build();
-    Predicate<? super String> mayKeyClassifier = mayClassifier != null
-        ? mayClassifier
-        : mayKeySet.isEmpty()
+    Predicate<? super String> mayKeyClassifier;
+    if (mayClassifier != null) {
+      mayKeyClassifier = mayClassifier;
+    } else if (mayKeySet.isEmpty()) {
         // If nothing specified, assume permissive.
-        ? Predicates.alwaysTrue()
-        // If a set specified, defer to the set.
-        : Predicates.alwaysFalse();
+      mayKeyClassifier = Predicates.alwaysTrue();
+    } else {
+      // If a set specified, defer to the set.
+      mayKeyClassifier = Predicates.<String>alwaysFalse();
+    }
 
     ImmutableSet<String> onceKeySet = onceKeys.build();
-    Predicate<? super String> onceKeyClassifier = onceClassifier != null
-        ? onceClassifier
-        : Predicates.alwaysFalse();
+    Predicate<? super String> onceKeyClassifier;
+    if (onceClassifier != null) {
+      onceKeyClassifier = onceClassifier;
+    } else {
+      onceKeyClassifier = Predicates.<String>alwaysFalse();
+    }
 
     ImmutableSet<String> mustKeySet = mustKeys.build();
     ImmutableMap<String, Predicate<? super Optional<String>>> valueClassifierMap =
@@ -129,8 +135,11 @@ public final class QueryClassifierBuilder {
   }
   /** @see #mayHaveKeys(String...) */
   public QueryClassifierBuilder mayHaveKeys(Predicate<? super String> p) {
-    mayClassifier = mayClassifier == null
-        ? p : Predicates.or(mayClassifier, p);
+    if (mayClassifier == null) {
+      mayClassifier = p;
+    } else {
+      mayClassifier = Predicates.<String>or(mayClassifier, p);
+    }
     return this;
   }
 
@@ -149,8 +158,11 @@ public final class QueryClassifierBuilder {
   }
   /** @see #mayNotRepeatKeys(String...) */
   public QueryClassifierBuilder mayNotRepeatKeys(Predicate<? super String> p) {
-    onceClassifier = onceClassifier == null
-        ? p : Predicates.or(onceClassifier, p);
+    if (onceClassifier == null) {
+      onceClassifier = p;
+    } else {
+      onceClassifier = Predicates.or(onceClassifier, p);
+    }
     return this;
   }
 
@@ -231,7 +243,7 @@ final class QueryClassifierImpl implements QueryClassifier {
 
   @Override
   public Classification apply(UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
-    Set<String> keysSeen = new HashSet<>();
+    Set<String> keysSeen = new HashSet<String>();
     String query = x.getQuery();
 
     Classification result = Classification.MATCH;
@@ -270,7 +282,7 @@ final class QueryClassifierImpl implements QueryClassifier {
                 if (p != null) {
                   Optional<String> value = valueOpt.isPresent()
                       ? Optional.of(valueOpt.get().toString())
-                      : Optional.absent();
+                      : Optional.<String>absent();
                   if (!p.apply(value)) {
                     result = Classification.NOT_A_MATCH;
                     r.note(Diagnostics.DISALLOWED_QUERY_VALUE, x);

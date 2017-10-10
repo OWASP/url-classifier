@@ -102,7 +102,7 @@ import com.google.common.collect.Sets;
  * embedded content include "{@code about:}", "{@code blob:}", "{@code data:}", and
  * "{@code javascript:}".
  *
- * @see UrlClassifier#builder
+ * @see UrlClassifiers#builder
  */
 public final class UrlClassifierBuilder {
   UrlClassifierBuilder() {
@@ -129,10 +129,10 @@ public final class UrlClassifierBuilder {
     ImmutableSet<Scheme> allowedSchemeSet = allowedSchemes.build();
     MediaTypeClassifier mtc = mediaTypeClassifier != null
         ? mediaTypeClassifier
-        : MediaTypeClassifier.or();
+        : MediaTypeClassifiers.or();
     AuthorityClassifier ac = authorityClassifier != null
         ? authorityClassifier
-        : AuthorityClassifier.any();
+        : AuthorityClassifiers.any();
     ImmutableSet<String> positivePathGlobSet = positivePathGlobs.build();
     ImmutableSet<String> negativePathGlobSet = negativePathGlobs.build();
     Pattern positivePathPattern = positivePathGlobSet.isEmpty()
@@ -143,13 +143,13 @@ public final class UrlClassifierBuilder {
         : PathGlobs.toPattern(negativePathGlobSet);
     QueryClassifier qc = queryClassifier != null
         ? queryClassifier
-        : QueryClassifier.any();
+        : QueryClassifiers.any();
     FragmentClassifier fc = fragmentClassifier != null
         ? fragmentClassifier
-        : FragmentClassifier.any();
+        : FragmentClassifiers.any();
     ContentClassifier cc = contentClassifier != null
         ? contentClassifier
-        : ContentClassifier.any();
+        : ContentClassifiers.any();
 
     return new UrlClassifierImpl(
         flags,
@@ -274,7 +274,7 @@ public final class UrlClassifierBuilder {
     this.allowedSchemes.add(BuiltinScheme.DATA);
     this.mediaTypeClassifier = this.mediaTypeClassifier == null
         ? c
-        : MediaTypeClassifier.or(this.mediaTypeClassifier, c);
+        : MediaTypeClassifiers.or(this.mediaTypeClassifier, c);
     return this;
   }
 
@@ -293,7 +293,7 @@ public final class UrlClassifierBuilder {
   public UrlClassifierBuilder authority(AuthorityClassifier ac) {
     this.authorityClassifier = this.authorityClassifier == null
         ? ac
-        : AuthorityClassifier.or(this.authorityClassifier, ac);
+        : AuthorityClassifiers.or(this.authorityClassifier, ac);
     return this;
   }
 
@@ -387,7 +387,7 @@ public final class UrlClassifierBuilder {
   public UrlClassifierBuilder query(QueryClassifier qc) {
     this.queryClassifier = this.queryClassifier == null
         ? qc
-        : QueryClassifier.or(this.queryClassifier, qc);
+        : QueryClassifiers.or(this.queryClassifier, qc);
     return this;
   }
   /**
@@ -425,7 +425,7 @@ public final class UrlClassifierBuilder {
   public UrlClassifierBuilder fragment(FragmentClassifier fc) {
     this.fragmentClassifier = this.fragmentClassifier == null
         ? fc
-        : FragmentClassifier.or(this.fragmentClassifier, fc);
+        : FragmentClassifiers.or(this.fragmentClassifier, fc);
     return this;
   }
   /**
@@ -469,7 +469,7 @@ public final class UrlClassifierBuilder {
   public UrlClassifierBuilder content(ContentClassifier c) {
     this.contentClassifier = this.contentClassifier == null
         ? c
-        : ContentClassifier.or(this.contentClassifier, c);
+        : ContentClassifiers.or(this.contentClassifier, c);
     return this;
   }
 }
@@ -536,7 +536,7 @@ final class UrlClassifierImpl implements UrlClassifier {
   public Classification apply(
       UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
     Diagnostic.CollectingReceiver<? super UrlValue> cr =
-        Diagnostic.collecting(r);
+        Diagnostic.CollectingReceiver.from(r);
 
     if (!this.toleratedCornerCaseSet.containsAll(x.cornerCases)) {
       r.note(Diagnostics.UNTOLERATED_CORNER_CASE, x);

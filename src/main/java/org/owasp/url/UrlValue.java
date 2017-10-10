@@ -384,7 +384,7 @@ public final class UrlValue {
     if (decodedContent == null) {
       decodedContent = Optional.absent();
       if (ranges.contentLeft >= 0) {
-        decodedContent = Optional.fromNullable(
+        decodedContent = Optional.<Object>fromNullable(
             scheme.decodeContent(urlText, ranges));
       }
     }

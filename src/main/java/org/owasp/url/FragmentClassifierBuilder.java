@@ -41,13 +41,13 @@ import com.google.common.base.Predicates;
  * supplied predicates or classifiers matches.
  * A predicate, p, is considered matching if {@code p.apply(x)} is true.
  *
- * @see FragmentClassifier#builder
+ * @see FragmentClassifiers#builder
  */
 public final class FragmentClassifierBuilder {
   private UrlClassifier asRelativeUrlPred;
   private Predicate<? super Optional<String>> fragmentPred;
 
-  static final UrlClassifier MATCH_NO_URLS = UrlClassifier.or();
+  static final UrlClassifier MATCH_NO_URLS = UrlClassifiers.or();
 
   FragmentClassifierBuilder() {
     // Use static factory
@@ -80,9 +80,11 @@ public final class FragmentClassifierBuilder {
    * </blockquote>
    */
   public FragmentClassifierBuilder match(Predicate<? super Optional<String>> p) {
-    this.fragmentPred = this.fragmentPred == null
-        ? p
-        : Predicates.or(this.fragmentPred, p);
+    if (this.fragmentPred == null) {
+      this.fragmentPred = p;
+    } else {
+      this.fragmentPred = Predicates.or(this.fragmentPred, p);
+    }
     return this;
   }
 
@@ -93,7 +95,7 @@ public final class FragmentClassifierBuilder {
    * http://[special-unkown-host]/
    *
    * <p>By "relative," we mean not absolute per RFC 3986.  An absolute path is
-   * still a relatvie URL by this scheme since it specifies no scheme.
+   * still a relative URL by this scheme since it specifies no scheme.
    *
    * <p>This requires that the fragment will be present, so to allow
    * no fragment OR the fragments described above, use FragmentClassifier.or(...).
@@ -101,7 +103,7 @@ public final class FragmentClassifierBuilder {
   public FragmentClassifierBuilder matchAsUrl(UrlClassifier p) {
     this.asRelativeUrlPred = this.asRelativeUrlPred == null
         ? p
-        : UrlClassifier.or(this.asRelativeUrlPred, p);
+        : UrlClassifiers.or(this.asRelativeUrlPred, p);
     return this;
   }
 }

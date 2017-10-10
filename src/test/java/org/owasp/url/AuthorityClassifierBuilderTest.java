@@ -46,7 +46,7 @@ public final class AuthorityClassifierBuilderTest {
       UrlContext context,
       String... shouldMatch) {
 
-    Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.collecting(
+    Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.CollectingReceiver.from(
         TestUtil.STDERR_RECEIVER);
 
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
@@ -158,14 +158,14 @@ public final class AuthorityClassifierBuilderTest {
   @Test
   public void testUnconfiguredClassifier() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder().build(),
+        AuthorityClassifiers.builder().build(),
         UrlContext.DEFAULT);
   }
 
   @Test
   public void testAllowLocalhost() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
            .host("localhost")
            .build(),
         UrlContext.DEFAULT,
@@ -173,7 +173,7 @@ public final class AuthorityClassifierBuilderTest {
         "http://loc%61lhost/",
         "http://localhos%74/");
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
            .hostGlob("localhost")
            .build(),
         UrlContext.DEFAULT,
@@ -185,7 +185,7 @@ public final class AuthorityClassifierBuilderTest {
   @Test
   public void testPunycodeUnicodeEquivalence() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
            .host("xn--fsq")  // Mandarin for "example"
            .build(),
         UrlContext.DEFAULT,
@@ -197,7 +197,7 @@ public final class AuthorityClassifierBuilderTest {
   @Test
   public void testSingleIntegerPortExclusion() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
            .host("example", "example.com")
            .port(443)
            .build(),
@@ -210,7 +210,7 @@ public final class AuthorityClassifierBuilderTest {
   @Test
   public void testMultipleIntegerPortExclusionsOutOfOrder() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
            .host("example", "example.com")
            .port(443, 80)
            .build(),
@@ -227,7 +227,7 @@ public final class AuthorityClassifierBuilderTest {
   @Test
   public void testSinglePortClassifier() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
            .host("example", "example.com")
            .port(
                new Predicate<Integer>() {
@@ -248,7 +248,7 @@ public final class AuthorityClassifierBuilderTest {
   @Test
   public void testMultiplePortExclusion() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
            .host("example", "example.com")
            .port(443)
            .port(new Predicate<Integer>() {
@@ -273,7 +273,7 @@ public final class AuthorityClassifierBuilderTest {
   @Test
   public void testUnameClassifiersAndCustomScheme() throws Exception {
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
             .host("server")
             .userName(
                 new Predicate<Optional<String>>() {
@@ -302,7 +302,7 @@ public final class AuthorityClassifierBuilderTest {
     // AuthorityClassifier, but we should stake out a sensible behavior
     // if it's used standalone.
     runCommonTestsWith(
-        AuthorityClassifier.builder()
+        AuthorityClassifiers.builder()
             .host("server")
             .userName(
                 new Predicate<Optional<String>>() {

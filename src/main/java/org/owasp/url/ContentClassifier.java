@@ -28,9 +28,6 @@
 
 package org.owasp.url;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-
 /**
  * A URL classifier that checks the content and content-metadata portions
  * of a non-hierarchical URL.
@@ -38,73 +35,5 @@ import com.google.common.collect.ImmutableList;
  * @see UrlValue#getDecodedContent()
  */
 public interface ContentClassifier extends UrlClassifier {
-
-  /**
-   * A classifier that passes when applying cs in order results in a match before a
-   * classification of INVALID.
-   *
-   * @param cs the operands.
-   * @return The disjunction of cs.
-   */
-  public static ContentClassifier or(ContentClassifier... cs) {
-    return or(ImmutableList.copyOf(cs));
-  }
-
-  /**
-   * A classifier that passes when applying cs in order results in a match before a
-   * classification of INVALID.
-   *
-   * @param cs the operands.
-   * @return The disjunction of cs.
-   */
-  public static ContentClassifier or(Iterable<? extends ContentClassifier> cs) {
-    return UrlClassifierOr.abstractOr(
-        cs, ContentClassifierOr.FP_FALSE,
-        new Function<ImmutableList<ContentClassifier>, ContentClassifier>() {
-
-          @Override
-          public ContentClassifier apply(ImmutableList<ContentClassifier> flat) {
-            return new ContentClassifierOr(flat);
-          }
-
-        });
-  }
-
-  /**
-   * A classifier that matches all inputs.
-   */
-  public static ContentClassifier any() {
-    return AnyContentClassifier.INSTANCE;
-  }
-}
-
-final class AnyContentClassifier implements ContentClassifier {
-  static final AnyContentClassifier INSTANCE = new AnyContentClassifier();
-
-  @Override
-  public Classification apply(
-      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
-    return Classification.MATCH;
-  }
-}
-
-final class ContentClassifierOr
-extends UrlClassifierOr<ContentClassifier> implements ContentClassifier {
-
-  static final ContentClassifierOr FP_FALSE =
-      new ContentClassifierOr(ImmutableList.of());
-
-  static final Function<ImmutableList<ContentClassifier>, ContentClassifier> FP_NEW =
-      new Function<ImmutableList<ContentClassifier>, ContentClassifier>() {
-
-        @Override
-        public ContentClassifier apply(ImmutableList<ContentClassifier> cs) {
-          return new ContentClassifierOr(cs);
-        }
-
-      };
-
-  ContentClassifierOr(ImmutableList<ContentClassifier> cs) {
-    super(cs);
-  }
+  // Marker interface
 }
