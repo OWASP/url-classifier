@@ -11,7 +11,7 @@
     When the version ends with "-SNAPSHOT", then `mvn deploy` moves it to
     the snapshot directory instead of into staging proper.
    -->
-  <version>1.1.0</version>
+  <version>1.2.0</version>
   <name>url-classifier</name>
   <description>
     Declarative syntax for defining sets of URLs. No need for
