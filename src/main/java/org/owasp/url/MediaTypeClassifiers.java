@@ -41,6 +41,11 @@ public final class MediaTypeClassifiers {
     // Static API
   }
 
+  /** A new blank builder. */
+  public static MediaTypeClassifierBuilder builder() {
+    return new MediaTypeClassifierBuilder();
+  }
+
   /**
    * A classifier that passes when applying cs in order results in a match before a
    * classification of INVALID.
