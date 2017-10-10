@@ -19,11 +19,11 @@ import org.owasp.url.*;
 class C {
 
   /** We define a classifier with a declarative syntax */
-  static final UrlClassifier CLASSIFIER = UrlClassifier.builder()
+  static final UrlClassifier CLASSIFIER = UrlClassifiers.builder()
       // We want to allow HTTP and HTTPS for this example
       .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
       .authority(
-          AuthorityClassifier.builder()
+          AuthorityClassifiers.builder()
           // We whitelist some subdomains of certain hosts
           .host("**.example.com", "**.example.net")
           .build())
