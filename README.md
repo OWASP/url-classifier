@@ -33,6 +33,7 @@ class C {
 
   void f() {
     // At runtime, we build a URL value.
+    // Pass in a URLContext if you know the base URL.
     UrlValue url = UrlValue.from("http://example.com/");
 
     Classification c = CLASSIFIER.apply(
