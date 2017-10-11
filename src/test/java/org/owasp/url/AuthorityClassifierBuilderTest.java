@@ -30,12 +30,17 @@ package org.owasp.url;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.Map;
+import java.util.Set;
+
 import org.junit.Test;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 
 @SuppressWarnings({ "javadoc", "static-method" })
@@ -46,43 +51,46 @@ public final class AuthorityClassifierBuilderTest {
       UrlContext context,
       String... shouldMatch) {
 
+    ImmutableList<String> matches = ImmutableList.copyOf(shouldMatch);
+    Set<String> notMatchSet = Sets.newLinkedHashSet(MAY_MATCH);
+    notMatchSet.removeAll(matches);
+    ImmutableList<String> notMatches = ImmutableList.copyOf(notMatchSet);
+
+    ImmutableMap<Classification, ImmutableList<String>> inputs =
+        ImmutableMap.of(
+            Classification.INVALID, MUST_BE_INVALID,
+            Classification.MATCH, matches,
+            Classification.NOT_A_MATCH, notMatches);
+
+    runTests(p, context, inputs);
+  }
+
+  private static void runTests(
+      AuthorityClassifier p,
+      UrlContext context,
+      ImmutableMap<Classification, ImmutableList<String>> inputs) {
+
     Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.CollectingReceiver.from(
         TestUtil.STDERR_RECEIVER);
 
-    ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
-
     try {
-      for (int i = 0; i < MAY_MATCH.size(); ++i) {
-        cr.clear();
-        String url = MAY_MATCH.get(i);
-        UrlValue inp = UrlValue.from(context, url);
-        assertEquals(
-            i + ": " + url,
+      for (Map.Entry<Classification, ImmutableList<String>> e
+          : inputs.entrySet()) {
+        Classification want = e.getKey();
+        ImmutableList<String> inputList = e.getValue();
+        for (int i = 0; i < inputList.size(); ++i) {
+          cr.clear();
+          String url = inputList.get(i);
+          UrlValue inp = UrlValue.from(context, url);
+          assertEquals(
+              i + ": " + url,
 
-            matchSet.contains(url)
-            ? Classification.MATCH
-            : Classification.NOT_A_MATCH,
+              want,
 
-            p.apply(inp, cr));
-      }
-
-      for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
+              p.apply(inp, cr));
+        }
         cr.clear();
-        String url = MUST_BE_INVALID.get(i);
-        UrlValue inp = UrlValue.from(context, url);
-        assertEquals(
-            i + ": " + url,
-            Classification.INVALID,
-            p.apply(inp, cr));
       }
-      for (String url : matchSet) {
-        cr.clear();
-        assertEquals(
-            url,
-            Classification.MATCH,
-            p.apply(UrlValue.from(context, url), cr));
-      }
-      cr.clear();
     } finally {
       cr.flush();
     }
@@ -133,6 +141,7 @@ public final class AuthorityClassifierBuilderTest {
       "blob:file:///uuid",  // No authority.
       "http:///",
       "http://@/",
+      "http://0/",
       "http://foo@/",
       "http://%@example.com/",
       "http://example.com:@/",
@@ -156,14 +165,14 @@ public final class AuthorityClassifierBuilderTest {
 
 
   @Test
-  public void testUnconfiguredClassifier() throws Exception {
+  public void testUnconfiguredClassifier() {
     runCommonTestsWith(
         AuthorityClassifiers.builder().build(),
         UrlContext.DEFAULT);
   }
 
   @Test
-  public void testAllowLocalhost() throws Exception {
+  public void testAllowLocalhost() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
            .host("localhost")
@@ -183,7 +192,7 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testPunycodeUnicodeEquivalence() throws Exception {
+  public void testPunycodeUnicodeEquivalence() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
            .host("xn--fsq")  // Mandarin for "example"
@@ -195,7 +204,7 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testSingleIntegerPortExclusion() throws Exception {
+  public void testSingleIntegerPortExclusion() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
            .host("example", "example.com")
@@ -208,7 +217,7 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testMultipleIntegerPortExclusionsOutOfOrder() throws Exception {
+  public void testMultipleIntegerPortExclusionsOutOfOrder() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
            .host("example", "example.com")
@@ -225,7 +234,7 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testSinglePortClassifier() throws Exception {
+  public void testSinglePortClassifier() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
            .host("example", "example.com")
@@ -246,7 +255,7 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testMultiplePortExclusion() throws Exception {
+  public void testMultiplePortExclusion() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
            .host("example", "example.com")
@@ -271,7 +280,7 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testUnameClassifiersAndCustomScheme() throws Exception {
+  public void testUnameClassifiersAndCustomScheme() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
             .host("server")
@@ -297,7 +306,7 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testUnameClassifiersWithoutCustomScheme() throws Exception {
+  public void testUnameClassifiersWithoutCustomScheme() {
     // URLClassifier should never pass Scheme.UNKNOWN through to
     // AuthorityClassifier, but we should stake out a sensible behavior
     // if it's used standalone.
@@ -320,6 +329,73 @@ public final class AuthorityClassifierBuilderTest {
         "ssh://user@server/project.git",
         "ssh://user@sErvEr:22/project.git",
         "ssh://u%73er@server/project.git");
+  }
+
+  @Test
+  public void testIDNAAbuse() {
+    // Tests courtesy "Abusing IDNA Standard" section of
+    // https://www.blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf
+    runTests(
+        AuthorityClassifiers.builder()
+           .host("google.com", "bass.de")
+           .build(),
+        UrlContext.DEFAULT,
+
+        ImmutableMap.<Classification, ImmutableList<String>>of(
+            Classification.MATCH,
+            ImmutableList.of(
+                "http://google.com/", "http://GOOGLE.COM/",
+                "http://bass.de/", "http://bass.DE/"),
+
+            Classification.NOT_A_MATCH,
+            ImmutableList.of(
+                // TODO: invalid per IDNA2008.
+                // Filed a bug against Guava.
+                "http://ⓖⓞⓞⓖⓛⓔ.com/",
+                // IDNA deviant character abuses
+                "http://g\u200Doogle.com/",
+                "http://baß.de/"),
+
+            Classification.INVALID,
+            ImmutableList.of(
+                "http://g\\u200Doogle.com/")));
+  }
+
+  @Test
+  public void testTheOnlyDotIsDot() {
+    AuthorityClassifier c = AuthorityClassifiers.builder()
+        .host("a.b", "127.0.0.1", "[3ffe:0:0:0:0:0:0:1]")
+        .build();
+    for (String[] urlTemplateAndValidSubst : new String[][] {
+      { "http://a%sb", "." },
+      { "http://a.%s", "bB" },
+      { "http://127%s0.0.1/", "." },
+      { "http://127.0.%s.1/", "0" },
+      { "http://%s27.0.0.1/", "1" },
+      { "http://1%s7.0.0.1/", "2" },
+      { "http://12%s.0.0.1/", "7" },
+      { "http://%s3ffe:0:0:0:0:0:0:1]/", "[" },
+      { "http://[3ffe%s0:0:0:0:0:0:1]/", ":" },
+      { "http://[3ffe:0:0:0:0:0:%s:1]/", "0" },
+      { "http://[3ffe:0:0:0:0:0:0:1%s/", "]" },
+    }) {
+      String urlTemplate = urlTemplateAndValidSubst[0];
+      String allowed = urlTemplateAndValidSubst[1];
+      for (int i = 0; i <= 0x101ff; ++i) {
+        UrlValue x = UrlValue.from(
+            urlTemplate.replace("%s", new StringBuilder().appendCodePoint(i)));
+        Classification got = c.apply(x, Diagnostic.Receiver.NULL);
+        try {
+        assertEquals(
+            "U+" + Integer.toString(i, 16) + " : " + x.originalUrlText,
+            allowed.indexOf(i) >= 0,
+            got == Classification.MATCH);
+        } catch (Error e) {
+          System.err.println("urlTemplate=" + urlTemplate + ", allowed=" + allowed);
+          throw e;
+        }
+      }
+    }
   }
 
 }

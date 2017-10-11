@@ -555,7 +555,12 @@ final class UrlClassifierImpl implements UrlClassifier {
     if (!allowedSchemeSet.contains(s)) {
       return Classification.NOT_A_MATCH;
     }
-    if (s.naturallyHasAuthority || x.ranges.authorityLeft >= 0) {
+    if (s.naturallyHasAuthority
+        || x.ranges.authorityLeft < x.ranges.authorityRight) {
+      // Make sure we are alerted to any invalid authorities.
+      if (x.getAuthority(r) == null) {
+        return Classification.INVALID;
+      }
       Classification c = authorityClassifier.apply(x, cr);
       if (c != Classification.MATCH) {
         cr.flush();

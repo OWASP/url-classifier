@@ -96,6 +96,23 @@ public final class UrlValue {
      * forward slashes.
      */
     FLIPPED_SLASHES,
+
+    /**
+     * The authority one of a small set of characters that are treated differently by
+     * <a href="http://unicode.org/faq/idn.html#7">different versions of the IDNA</a> spec.
+     * <blockquote>
+     * Four characters can cause an IDNA2008 implementation to go to a different web page than an
+     * IDNA2003 implementation, given the same source, such as href="http://faß.de". These four
+     * characters include some that are quite common in languages such as German, Greek, Farsi,
+     * and Sinhala
+     * </blockquote>
+     * If you're confident that all endpoints use the same version of the IDNA specification,
+     * then enable this.
+     * <p>
+     * This is not triggered if the domain name is punycode encoded.
+     */
+//    IDNA_DEVIANT,   // TODO: is this worth flagging?
+
   }
 
   /** The context in which the URL is interpreted. */

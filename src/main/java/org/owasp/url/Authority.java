@@ -170,6 +170,11 @@ public final class Authority {
       Object hostValue;
       try {
         if (InetAddresses.isUriInetAddress(rawHost)) {
+          // Numeric addresses should be ascii.
+          if (hasNonAsciiMetacharacters(rawHost)) {
+            r.note(Diagnostics.NON_ASCII_METACHARACTERS, x);
+            return null;
+          }
           hostValue = InetAddresses.forUriString(rawHost);
         } else {
           Optional<String> decodedHostOpt = Percent.decode(rawHost);
@@ -177,8 +182,12 @@ public final class Authority {
             r.note(Diagnostics.MALFORMED_HOSTNAME, x);
             return null;
           }
-          hostValue = AuthorityClassifierBuilder
-              .toDomainName(decodedHostOpt.get());
+          String decodedHost = decodedHostOpt.get();
+          if (hasNonAsciiDomainNameMetacharacters(decodedHost)) {
+            r.note(Diagnostics.NON_ASCII_METACHARACTERS, x);
+            return null;
+          }
+          hostValue = AuthorityClassifierBuilder.toDomainName(decodedHost);
         }
       } catch (@SuppressWarnings("unused") IllegalArgumentException e) {
         r.note(Diagnostics.MALFORMED_HOST, x);
@@ -208,7 +217,41 @@ public final class Authority {
     MALFORMED_USERNAME,
     PORT_OUT_OF_RANGE,
     EMPTY_HOSTNAME,
+    NON_ASCII_METACHARACTERS,
     MALFORMED_HOSTNAME,
     MALFORMED_HOST,
+  }
+
+  private static boolean hasNonAsciiDomainNameMetacharacters(String host) {
+    int n = host.length();
+    for (int i = 0; i < n; ++i) {
+      char c = host.charAt(i);
+      if (c < 0x80) { continue; }  // Common case
+      switch (c) {
+        // Normalize to '.'
+        // InternetDomainName starts off
+        // name = Ascii.toLowerCase(DOTS_MATCHER.replaceFrom(name, '.'));
+        // Prevent that.
+        case 0x3002:
+        case 0xff0e:
+        case 0xff61:
+          return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasNonAsciiMetacharacters(String host) {
+    // Lots of digits in the Arabic, Devanagiri and other code tables are
+    // recognized as decimal digits by the Java core library numeric IP
+    // parsing methods.
+    // The RFCs are very clear though that only the ASCII variants are
+    // valid.
+    int n = host.length();
+    for (int i = 0; i < n; ++i) {
+      char c = host.charAt(i);
+      if (c >= 0x80) { return true; }
+    }
+    return false;
   }
 }
