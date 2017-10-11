@@ -10,7 +10,7 @@ Declarative syntax for defining sets of URLs.  No need for error-prone regexs.
 
 ### Java <sub><sup>([javadoc][javadoc])</sup></sub>
 
-[javadoc]: http://static.javadoc.io/org.owasp/url/1.2.1/org/owasp/url/package-summary.html#package.description
+[javadoc]: http://static.javadoc.io/org.owasp/url/1.2.2/org/owasp/url/package-summary.html#package.description
 
 ```java
 // Classes are all defined under org.owasp.url
