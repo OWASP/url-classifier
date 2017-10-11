@@ -174,9 +174,9 @@ public final class MediaTypeClassifierBuilderTest {
             "data:text/plain;foo=bar,",
             "data:image/png,",
             "data:application/javascript,",
+            "data:image/png;base64;evil=0,",  // TODO: what should happen here?
         },
         new String[] {
-            "data:image/png;base64;evil=0,",  // TODO: what should happen here?
         });
   }
 
