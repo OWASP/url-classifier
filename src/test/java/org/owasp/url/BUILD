@@ -33,3 +33,10 @@ java_library(
     )
     for test_src in glob(["*Test.java"])
 ]
+
+
+sh_test(
+    name = "all_tests_annotated",
+    srcs = ["all_tests_annotated.sh"],
+    data = glob(["*Test.java"]),
+)
