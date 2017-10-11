@@ -7,7 +7,7 @@ java_library(
     name = "test_lib",
     srcs = glob(
         include=["*.java"],
-        exclude=["*Test.java"],
+        exclude=["*Test.java", "FuzzUrlValue.java"],
     ),
     deps = [
         "//src/main/java/org/owasp/url",
@@ -39,4 +39,27 @@ sh_test(
     name = "all_tests_annotated",
     srcs = ["all_tests_annotated.sh"],
     data = glob(["*Test.java"]),
+)
+
+
+java_binary(
+    name = "FuzzUrlValue",
+    srcs = [
+        "FuzzUrlValue.java",
+    ],
+    deps = [
+        "//src/main/java/org/owasp/url",
+        "@com_google_guava_guava//jar",
+    ],
+    testonly = 1,
+)
+
+sh_test(
+    name = "grammar_fuzzer_test",
+    srcs = ["grammar_fuzzer_test.sh"],
+    data = [
+        "@gramtest_jar//file",
+        "@gramtest_url_bnf//file",
+        "FuzzUrlValue_deploy.jar",
+    ],
 )
