@@ -374,6 +374,23 @@ public final class UrlClassifierBuilderTest {
     .run();
   }
 
+  @Test
+  public final void testMediaTypes() {
+    new TestBuilder(
+        UrlClassifiers.builder()
+        .schemeData(
+            MediaTypeClassifiers.builder()
+            .type("image", "png")
+            .build())
+        .build())
+    .expectMatches("data:image/png;base64,...")
+    .expectDoesNotMatch(
+        "data:text/html;charset=utf-8,...",
+        "data:image/gif;base64,...")
+    .expectInvalid("data:image/svg;")
+    .run();
+  }
+
   // TODO: simple content predicate with magic number check for gif
 
   static String debug(UrlValue x) {

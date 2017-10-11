@@ -588,13 +588,16 @@ final class UrlClassifierImpl implements UrlClassifier {
       }
     }
 
-    if (mediaTypeClassifier != null && x.getContentMediaType() != null) {
-      cr.clear();
-      Classification c = mediaTypeClassifier.apply(x, cr);
-      if (c != Classification.MATCH) {
-        cr.flush();
-        r.note(Diagnostics.MEDIA_TYPE_DID_NOT_MATCH, x);
-        return c;
+    if (mediaTypeClassifier != null) {
+      if (x.getContentMediaType() != null
+          || x.scheme == BuiltinScheme.DATA) {
+        cr.clear();
+        Classification c = mediaTypeClassifier.apply(x, cr);
+        if (c != Classification.MATCH) {
+          cr.flush();
+          r.note(Diagnostics.MEDIA_TYPE_DID_NOT_MATCH, x);
+          return c;
+        }
       }
     }
     if (s.naturallyEmbedsContent || x.ranges.contentLeft >= 0) {

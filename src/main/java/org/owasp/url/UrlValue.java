@@ -349,8 +349,8 @@ public final class UrlValue {
       if (scheme == BuiltinScheme.DATA) {
         String metadata = getContentMetadata();
         if (metadata != null) {
-          mediaTypeOpt = DataSchemeMediaTypeUtil.parseMediaTypeFromDataMetadata(
-              metadata);
+          mediaTypeOpt = DataSchemeMediaTypeUtil
+              .parseMediaTypeFromDataMetadata(metadata);
         }
       }
     }
@@ -442,7 +442,7 @@ final class DataSchemeMediaTypeUtil {
       + "([^/;\"]+)"   // type in group 2
       + "("   // parameters in group 3
       +   "(?:[;]"  // each parameter is preceded by a semicolon
-      +     "(?!=base64(?:;|\\z))"  // base64 is not a media type parameter.
+      +     "(?!base64(?:;|\\z))"  // base64 is not a media type parameter.
       +     "(?:"
       +       "[^;\"%]"  // one character in a parameter key or value
       +       "|(?:\"|%22)(?:[^\\\\\"%]|\\\\.|%5c.|%(?!=22|5c))*(?:\"|%22)"  // quoted-string
