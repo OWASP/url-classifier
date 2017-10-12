@@ -28,7 +28,7 @@ class C {
           .host("**.example.com", "**.example.net")
           .build())
       // We allow access to .html files
-      .path("**.html")
+      .pathGlob("**.html")
       .build();
 
   void f() {
@@ -37,7 +37,7 @@ class C {
     UrlValue url = UrlValue.from("http://example.com/");
 
     Classification c = CLASSIFIER.apply(
-        url
+        url,
         // If we want an explanation of why classification failed
         // we can connect diagnostics to our logs.
         Diagnostic.Receiver.NULL);
@@ -48,7 +48,7 @@ class C {
         // ...
         System.out.println(url.urlText);
         break;
-      case DOES_NOT_MATCH:
+      case NOT_A_MATCH:
         // ...
         break;
       case INVALID:
@@ -56,6 +56,7 @@ class C {
         break;
     }
   }
+}
 ```
 
 
