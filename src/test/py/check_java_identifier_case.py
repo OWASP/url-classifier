@@ -23,6 +23,11 @@ _java_token = re.compile(
 _dodgy_case_token = re.compile(r'[A-Z]{3,}')
 _ident_token = re.compile(r'(?u)^\w')
 _const_token = re.compile(r'^[A-Z_0-9]+\Z')
+_WHITELIST = set((
+    # Used by depepdency ICU4J
+    'getUTS46Instance',
+    'nameToASCII',
+    ))
 
 def run():
     linenum = 1
@@ -35,6 +40,7 @@ def run():
                         file(java_path).read()):
                     token = token_match.group()
                     if (_ident_token.match(token)
+                        and token not in _WHITELIST
                         and not _const_token.match(token)):
                         acronyms = _dodgy_case_token.findall(token)
                         if acronyms:

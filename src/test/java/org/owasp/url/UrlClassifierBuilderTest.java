@@ -391,6 +391,33 @@ public final class UrlClassifierBuilderTest {
     .run();
   }
 
+
+  @Test
+  public void testIDNAAbuse() {
+    // Tests courtesy "Abusing IDNA Standard" section of
+    // https://www.blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf
+    new TestBuilder(
+        UrlClassifiers.builder()
+        .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
+        .authority(
+            AuthorityClassifiers.builder()
+            .host("google.com", "bass.de")
+            .build())
+        .build())
+    .expectMatches(
+        "http://google.com/", "http://GOOGLE.COM/",
+        "http://bass.de/", "http://bass.DE/")
+    .expectDoesNotMatch(
+        "http://ⓖⓞⓞⓖⓛⓔ.com/")
+    .expectInvalid(
+        // IDNA deviant character abuses
+        "http://g\\u200Doogle.com/",
+        "http://g\u200Doogle.com/",
+        "http://baß.de/")
+    .run();
+  }
+
+
   // TODO: simple content predicate with magic number check for gif
 
   static String debug(UrlValue x) {

@@ -13,6 +13,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "@com_google_guava_guava//jar",
+        "@com_ibm_icu_icu4j//jar",
     ],
     javacopts = JAVAC_OPTS,
     visibility = ["//visibility:public"],

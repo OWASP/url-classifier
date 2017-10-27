@@ -31,7 +31,6 @@ package org.owasp.url;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
-import java.net.IDN;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -50,6 +49,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.net.InetAddresses;
 import com.google.common.net.InternetDomainName;
+import com.ibm.icu.text.IDNA;
 
 /**
  * Builder for {@link AuthorityClassifier}s.
@@ -116,12 +116,6 @@ public final class AuthorityClassifierBuilder {
         unameClassifier);
   }
 
-  /** Returns a canonical domain name.  The canonical domain name is UNICODE with punycode. */
-  static InternetDomainName toDomainName(String decodedHost) {
-    String unicodeName = IDN.toUnicode(decodedHost, IDN.USE_STD3_ASCII_RULES);
-    return InternetDomainName.from(unicodeName);
-  }
-
   /**
    * Accepts hostnames or numeric IPAs.
    * IPv6 addresses should be in square brackets.
@@ -138,7 +132,10 @@ public final class AuthorityClassifierBuilder {
           ipv4s.add((Inet4Address) addr);
         }
       } else {
-        domainNames.add(toDomainName(host));
+        IDNA.Info info = new IDNA.Info();
+        domainNames.add(Authority.toDomainName(host, info));
+        Preconditions.checkArgument(
+            !info.hasErrors(), "Invalid domain name", host, info.getErrors());
       }
     }
     return this;
@@ -185,7 +182,10 @@ public final class AuthorityClassifierBuilder {
       if ("**".equals(glob)) {
         matchesAnyHost = true;
       } else if (glob.indexOf('*') < 0) {
-        domainNames.add(toDomainName(glob));
+        IDNA.Info info = new IDNA.Info();
+        domainNames.add(Authority.toDomainName(glob, info));
+        Preconditions.checkArgument(
+            !info.hasErrors(), "Invalid domain name", glob, info.getErrors());
       } else {
         hostGlobs.add(new HostGlob(glob));
       }

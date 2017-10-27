@@ -47,7 +47,7 @@ import com.google.common.net.MediaType;
 public final class UrlValue {
 
   /**
-   * An oddity in the URL spec (STD 66/RFC 3986) that would
+   * An oddity in the URL spec (STD 66/RFC 3986) or related specs that would
    * probably not be there if it could be redrafted without concern
    * for backwards compatibility or spec complexity.
    * <p>
@@ -96,7 +96,6 @@ public final class UrlValue {
      * forward slashes.
      */
     FLIPPED_SLASHES,
-
     /**
      * The authority one of a small set of characters that are treated differently by
      * <a href="http://unicode.org/faq/idn.html#7">different versions of the IDNA</a> spec.
@@ -111,8 +110,11 @@ public final class UrlValue {
      * <p>
      * This is not triggered if the domain name is punycode encoded.
      */
-//    IDNA_DEVIANT,   // TODO: is this worth flagging?
-
+    IDNA_TRANSITIONAL_DIFFERENCE,
+    /**
+     * The host may be valid per Std 66 but is not per the stricter IDNA requirements.
+     */
+    IDNA_INVALID_HOST,
   }
 
   /** The context in which the URL is interpreted. */
@@ -127,6 +129,8 @@ public final class UrlValue {
    * @see UrlContext#PLACEHOLDER_AUTHORITY
    */
   public final boolean inheritsPlaceholderAuthority;
+  private final String rawAuthority;
+  private final Authority authority;
 
   /**
    * True iff simplifying the path interpreted ".." relative to "/" or "".
@@ -225,8 +229,10 @@ public final class UrlValue {
     this.context = context;
     this.originalUrlText = originalUrlText;
 
+    EnumSet<UrlSpecCornerCase> extraCornerCases = EnumSet.noneOf(
+        UrlSpecCornerCase.class);
+
     String refUrlText = originalUrlText;
-    boolean flippedSlashes = false;
     switch (context.microsoftPathStrategy) {
       case BACK_TO_FORWARD:
         int eos = Absolutizer.endOfScheme(refUrlText);
@@ -238,7 +244,9 @@ public final class UrlValue {
         }
         if (scheme == null || scheme.isHierarchical) {
           refUrlText = refUrlText.replace('\\', '/');
-          flippedSlashes = !refUrlText.equals(originalUrlText);
+          if (!refUrlText.equals(originalUrlText)) {
+            extraCornerCases.add(UrlSpecCornerCase.FLIPPED_SLASHES);
+          }
         }
         break;
       case STANDARDS_COMPLIANT:
@@ -249,54 +257,48 @@ public final class UrlValue {
     this.scheme  = abs.scheme;
     this.urlText = abs.absUrlText;
     this.ranges = abs.absUrlRanges;
-    this.pathSimplificationReachedRootsParent = abs.pathSimplificationReachedRootsParent;
-    final int phLen = UrlContext.PLACEHOLDER_AUTHORITY.length();
-    this.inheritsPlaceholderAuthority = this.ranges != null
-        && abs.originalUrlRanges.authorityLeft < 0
-        && this.ranges.authorityLeft >= 0
-        && this.ranges.authorityRight - this.ranges.authorityLeft == phLen
-        && UrlContext.PLACEHOLDER_AUTHORITY.regionMatches(
-            0, this.urlText, abs.absUrlRanges.authorityLeft, phLen);
+    this.pathSimplificationReachedRootsParent =
+        abs.pathSimplificationReachedRootsParent;
+    if (ranges == null || ranges.authorityLeft == ranges.authorityRight) {
+      this.rawAuthority = null;
+      this.authority = null;
+      this.inheritsPlaceholderAuthority = false;
+    } else {
+      this.rawAuthority = this.urlText.substring(
+          this.ranges.authorityLeft, this.ranges.authorityRight);
+      this.inheritsPlaceholderAuthority = this.ranges != null
+          && abs.originalUrlRanges.authorityLeft < 0
+          && UrlContext.PLACEHOLDER_AUTHORITY.equals(rawAuthority);
+      this.authority = Authority.decode(this, Diagnostic.Receiver.NULL);
+      if (this.authority != null) {
+        if (!this.authority.hasValidHost()) {
+          extraCornerCases.add(UrlSpecCornerCase.IDNA_INVALID_HOST);
+        } else if (this.authority.hasTransitionalDifference()) {
+          extraCornerCases.add(UrlSpecCornerCase.IDNA_TRANSITIONAL_DIFFERENCE);
+        }
+      }
+    }
+
     ImmutableSet<UrlSpecCornerCase> allCornerCases = abs.cornerCases;
-    if (flippedSlashes) {
-      EnumSet<UrlSpecCornerCase> ccs = EnumSet.noneOf(UrlSpecCornerCase.class);
-      ccs.addAll(allCornerCases);
-      ccs.add(UrlSpecCornerCase.FLIPPED_SLASHES);
-      allCornerCases = Sets.immutableEnumSet(ccs);
+    if (!extraCornerCases.isEmpty()) {
+      extraCornerCases.addAll(allCornerCases);
+      allCornerCases = Sets.immutableEnumSet(extraCornerCases);
     }
     this.cornerCases = allCornerCases;
   }
 
-  private Optional<String> rawAuthority;
   /** The authority or null if none is available. */
   public String getRawAuthority() {
-    if (rawAuthority == null) {
-      rawAuthority = Optional.absent();
-      if (ranges != null && ranges.authorityLeft >= 0) {
-        rawAuthority = Optional.of(
-            urlText.substring(ranges.authorityLeft, ranges.authorityRight));
-      }
-    }
-    return rawAuthority.orNull();
+    return rawAuthority;
   }
 
-  private Optional<Authority> authority;
   /** The decoded authority or null if none is available. */
   public Authority getAuthority(Diagnostic.Receiver<? super UrlValue> r) {
-    if (authority == null) {
-      authority = Optional.absent();
-      if (getRawAuthority() != null) {
-        Authority auth = Authority.decode(this, r);
-        authority = Optional.fromNullable(auth);
-        return auth;
-      }
-    }
-    if (r != Diagnostic.Receiver.NULL
-        && rawAuthority.isPresent() && !authority.isPresent()) {
-      // Replay error messages.
+    if (authority == null && rawAuthority != null && r != Diagnostic.Receiver.NULL) {
+      // Replay error messages
       Authority.decode(this, r);
     }
-    return authority.orNull();
+    return authority;
   }
 
   private Optional<String> rawPath;

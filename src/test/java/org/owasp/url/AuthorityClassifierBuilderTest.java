@@ -30,6 +30,7 @@ package org.owasp.url;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
@@ -82,12 +83,8 @@ public final class AuthorityClassifierBuilderTest {
           cr.clear();
           String url = inputList.get(i);
           UrlValue inp = UrlValue.from(context, url);
-          assertEquals(
-              i + ": " + url,
-
-              want,
-
-              p.apply(inp, cr));
+          Classification got = p.apply(inp, cr);
+          assertEquals(i + ": " + url, want, got);
         }
         cr.clear();
       }
@@ -332,43 +329,13 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
-  public void testIDNAAbuse() {
-    // Tests courtesy "Abusing IDNA Standard" section of
-    // https://www.blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf
-    runTests(
-        AuthorityClassifiers.builder()
-           .host("google.com", "bass.de")
-           .build(),
-        UrlContext.DEFAULT,
-
-        ImmutableMap.<Classification, ImmutableList<String>>of(
-            Classification.MATCH,
-            ImmutableList.of(
-                "http://google.com/", "http://GOOGLE.COM/",
-                "http://bass.de/", "http://bass.DE/"),
-
-            Classification.NOT_A_MATCH,
-            ImmutableList.of(
-                // TODO: invalid per IDNA2008.
-                // Filed a bug against Guava.
-                "http://ⓖⓞⓞⓖⓛⓔ.com/",
-                // IDNA deviant character abuses
-                "http://g\u200Doogle.com/",
-                "http://baß.de/"),
-
-            Classification.INVALID,
-            ImmutableList.of(
-                "http://g\\u200Doogle.com/")));
-  }
-
-  @Test
   public void testTheOnlyDotIsDot() {
     AuthorityClassifier c = AuthorityClassifiers.builder()
         .host("a.b", "127.0.0.1", "[3ffe:0:0:0:0:0:0:1]")
         .build();
     for (String[] urlTemplateAndValidSubst : new String[][] {
       { "http://a%sb", "." },
-      { "http://a.%s", "bB" },
+      { "http://a.%s", "b", "B" },
       { "http://127%s0.0.1/", "." },
       { "http://127.0.%s.1/", "0" },
       { "http://%s27.0.0.1/", "1" },
@@ -376,19 +343,23 @@ public final class AuthorityClassifierBuilderTest {
       { "http://12%s.0.0.1/", "7" },
       { "http://%s3ffe:0:0:0:0:0:0:1]/", "[" },
       { "http://[3ffe%s0:0:0:0:0:0:1]/", ":" },
-      { "http://[3ffe:0:0:0:0:0:%s:1]/", "0" },
+      { "http://[3ffe:0:0:0:0:0:%s:1]/", "", "0" },
       { "http://[3ffe:0:0:0:0:0:0:1%s/", "]" },
     }) {
       String urlTemplate = urlTemplateAndValidSubst[0];
-      String allowed = urlTemplateAndValidSubst[1];
-      for (int i = 0; i <= 0x101ff; ++i) {
-        UrlValue x = UrlValue.from(
-            urlTemplate.replace("%s", new StringBuilder().appendCodePoint(i)));
+      Set<String> allowed = ImmutableSet.copyOf(
+          Arrays.asList(urlTemplateAndValidSubst)
+          .subList(1, urlTemplateAndValidSubst.length));
+      for (int i = -1; i <= 0x101ff; ++i) {
+        String replacement = i < 0
+            ? ""
+            : new StringBuilder().appendCodePoint(i).toString();
+        UrlValue x = UrlValue.from(urlTemplate.replace("%s", replacement));
         Classification got = c.apply(x, Diagnostic.Receiver.NULL);
         try {
         assertEquals(
             "U+" + Integer.toString(i, 16) + " : " + x.originalUrlText,
-            allowed.indexOf(i) >= 0,
+            allowed.contains(replacement),
             got == Classification.MATCH);
         } catch (Error e) {
           System.err.println("urlTemplate=" + urlTemplate + ", allowed=" + allowed);

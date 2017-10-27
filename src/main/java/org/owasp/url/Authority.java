@@ -28,6 +28,7 @@
 
 package org.owasp.url;
 
+import java.net.IDN;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 
@@ -35,6 +36,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.net.InetAddresses;
 import com.google.common.net.InternetDomainName;
+import com.ibm.icu.text.IDNA;
 
 
 /**
@@ -58,11 +60,13 @@ public final class Authority {
    * has a default port this will be the scheme default.
    */
   public final int portOrNegOne;
+  private final IDNA.Info info;
 
   /** */
   private Authority(
       Optional<String> userName, Optional<String> password,
-      Optional<Object> host, int portOrNegOne) {
+      Optional<Object> host, int portOrNegOne,
+      IDNA.Info info) {
     if (host.isPresent()) {
       Object hostObj = host.get();
       Preconditions.checkArgument(
@@ -76,10 +80,12 @@ public final class Authority {
     this.password = password;
     this.host = host;
     this.portOrNegOne = portOrNegOne;
+    this.info = info;
   }
 
   static Authority decode(
-      UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
+      UrlValue x,
+      Diagnostic.Receiver<? super UrlValue> r) {
     String auth = x.getRawAuthority();
     if (auth == null) {  // Nothing to do here
       return null;
@@ -166,6 +172,7 @@ public final class Authority {
     Optional<Object> host = Optional.absent();
     String rawHost = auth.substring(at + 1, hostEnd);
     int hostLength = rawHost.length();
+    IDNA.Info idnaInfo = null;
     if (hostLength != 0) {
       Object hostValue;
       try {
@@ -187,7 +194,8 @@ public final class Authority {
             r.note(Diagnostics.NON_ASCII_METACHARACTERS, x);
             return null;
           }
-          hostValue = AuthorityClassifierBuilder.toDomainName(decodedHost);
+          idnaInfo = new IDNA.Info();
+          hostValue = toDomainName(decodedHost, idnaInfo);
         }
       } catch (@SuppressWarnings("unused") IllegalArgumentException e) {
         r.note(Diagnostics.MALFORMED_HOST, x);
@@ -195,7 +203,27 @@ public final class Authority {
       }
       host = Optional.of(hostValue);
     }
-    return new Authority(uname, password, host, port);
+    return new Authority(uname, password, host, port, idnaInfo);
+  }
+
+  boolean hasValidHost() {
+    return this.host.isPresent() && (info == null || !info.hasErrors());
+  }
+
+  boolean hasTransitionalDifference() {
+    return info != null && info.isTransitionalDifferent();
+  }
+
+  /**
+   * @param info will have the errors and transitional differences set if
+   *    appropriate.
+   */
+  static InternetDomainName toDomainName(String decodedHost, IDNA.Info info) {
+    String unicodeName = IDN.toUnicode(decodedHost, IDN.USE_STD3_ASCII_RULES);
+    IDNA idna = IDNA.getUTS46Instance(IDNA.DEFAULT);
+    StringBuilder nameBuffer = new StringBuilder(decodedHost.length() + 16);
+    nameBuffer = idna.nameToASCII(decodedHost, nameBuffer, info);
+    return InternetDomainName.from(unicodeName);
   }
 
   private static int parseDecimalUintLessThan(String s, int left, int right, int limit) {

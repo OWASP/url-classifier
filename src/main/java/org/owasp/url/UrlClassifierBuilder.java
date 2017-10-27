@@ -521,6 +521,7 @@ final class UrlClassifierImpl implements UrlClassifier {
     UNTOLERATED_CORNER_CASE,
     NULS,
     MALFORMED_ACCORING_TO_SCHEME,
+    DISALLOWED_SCHEME,
     AUTHORITY_DID_NOT_MATCH,
     MALFORMED_PATH,
     PATH_SIMPLIFICATION_REACHED_ROOTS_PARENT,
@@ -553,6 +554,7 @@ final class UrlClassifierImpl implements UrlClassifier {
 
     Scheme s = x.scheme;
     if (!allowedSchemeSet.contains(s)) {
+      r.note(Diagnostics.DISALLOWED_SCHEME, x);
       return Classification.NOT_A_MATCH;
     }
     if (s.naturallyHasAuthority

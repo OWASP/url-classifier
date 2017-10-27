@@ -5,6 +5,12 @@ maven_jar(
 )
 
 maven_jar(
+    name = "com_ibm_icu_icu4j",
+    artifact = "com.ibm.icu:icu4j:59.1",
+    sha1 = "6f06e820cf4c8968bbbaae66ae0b33f6a256b57f",
+)
+
+maven_jar(
     name = "junit",
     artifact = "junit:junit:4.12",
 )
