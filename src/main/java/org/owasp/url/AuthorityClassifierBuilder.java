@@ -218,12 +218,15 @@ public final class AuthorityClassifierBuilder {
   }
 
   /**
-   * Unless a userinfo classifier is specified no
-   * URL with userinfo will match, so
-   * http://@example.com/ will not match.
+   * Specifies a classifier for the user info portion of the authority.
+   * <p>
+   * If not specified, the default is
+   * {@link UserInfoClassifiers#NO_PASSWORD_BUT_USERNAME_IF_ALLOWED_BY_SCHEME}.
+   *
+   * @see Authority#userName
+   * @see Authority#password
    */
-  public AuthorityClassifierBuilder userInfo(
-      UserInfoClassifier c) {
+  public AuthorityClassifierBuilder userInfo(UserInfoClassifier c) {
     Preconditions.checkNotNull(c);
     if (this.allowedUserInfoClassifier == null) {
       allowedUserInfoClassifier = c;
