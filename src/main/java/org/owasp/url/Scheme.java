@@ -59,6 +59,21 @@ public class Scheme {
   public final boolean isHierarchical;
   /** True iff the scheme allows for an authority component. */
   public final boolean naturallyHasAuthority;
+  /**
+   * True iff the specification for this scheme explains what should be done with
+   * the user name portion of the authority.
+   * RFC 7230 (HTTP & HTTPS) says
+   * <blockquote>
+   * A sender MUST NOT generate the userinfo subcomponent (and its "@" delimiter)
+   * when an "http" URI reference is generated within a message as a request
+   * target or header field value.
+   * </blockquote>
+   * so this field is not true for {@link BuiltinScheme#HTTP}.
+   *
+   * @see <a href="https://tools.ietf.org/html/rfc7230#section-2.7.1">http URI Scheme userinfo notes</a>
+   * @see <a href="https://bugs.chromium.org/p/chromium/issues/detail?id=626951">Chrome issue</a>
+   */
+  public final boolean mayHaveUserName;
   /** True iff the scheme allows for a path component. */
   public final boolean naturallyHasPath;
   /** True iff the scheme allows for a query component. */
@@ -98,6 +113,7 @@ public class Scheme {
     this.defaultPortOrNegOne = defaultPortOrNegOne;
     this.naturallyEmbedsContent = partSet.contains(SchemePart.CONTENT);
     this.naturallyHasAuthority = partSet.contains(SchemePart.AUTHORITY);
+    this.mayHaveUserName = partSet.contains(SchemePart.USERINFO);
     this.naturallyHasPath = partSet.contains(SchemePart.PATH);
     this.naturallyHasQuery = partSet.contains(SchemePart.QUERY);
   }
@@ -437,6 +453,8 @@ public class Scheme {
   public static enum SchemePart {
     /** */
     AUTHORITY,
+    /** */
+    USERINFO,
     /** */
     PATH,
     /** */

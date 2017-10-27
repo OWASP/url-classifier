@@ -71,9 +71,46 @@ public final class UrlClassifiers {
   }
 }
 
-class UrlClassifierOr<C extends UrlClassifier> implements UrlClassifier {
+abstract class ComplexUrlClassifier<C extends UrlClassifier>
+implements UrlClassifier {
   final ImmutableList<C> cs;
 
+  ComplexUrlClassifier(ImmutableList<C> cs) {
+    this.cs = cs;
+  }
+
+  @Override
+  public final int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + ((cs == null) ? 0 : cs.hashCode());
+    return result;
+  }
+
+  @Override
+  public final boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null) {
+      return false;
+    }
+    if (getClass() != obj.getClass()) {
+      return false;
+    }
+    UrlClassifierOr<?> other = (UrlClassifierOr<?>) obj;
+    if (cs == null) {
+      if (other.cs != null) {
+        return false;
+      }
+    } else if (!cs.equals(other.cs)) {
+      return false;
+    }
+    return true;
+  }
+}
+
+class UrlClassifierOr<C extends UrlClassifier> extends ComplexUrlClassifier<C> {
   static final UrlClassifierOr<UrlClassifier> UP_FALSE =
       new UrlClassifierOr<UrlClassifier>(ImmutableList.<UrlClassifier>of());
 
@@ -89,7 +126,7 @@ class UrlClassifierOr<C extends UrlClassifier> implements UrlClassifier {
 
 
   UrlClassifierOr(ImmutableList<C> cs) {
-    this.cs = cs;
+    super(cs);
   }
 
   @Override
@@ -146,34 +183,79 @@ class UrlClassifierOr<C extends UrlClassifier> implements UrlClassifier {
     }
     return Preconditions.checkNotNull(result);
   }
+}
 
-  @Override
-  public final int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((cs == null) ? 0 : cs.hashCode());
-    return result;
+class UrlClassifierAnd<C extends UrlClassifier> extends ComplexUrlClassifier<C> {
+  static final UrlClassifierAnd<UrlClassifier> UP_TRUE =
+      new UrlClassifierAnd<UrlClassifier>(ImmutableList.<UrlClassifier>of());
+
+  static final Function<ImmutableList<UrlClassifier>, UrlClassifier> UP_NEW =
+      new Function<ImmutableList<UrlClassifier>, UrlClassifier>() {
+
+        @Override
+        public UrlClassifier apply(ImmutableList<UrlClassifier> cs) {
+          return new UrlClassifierOr<UrlClassifier>(cs);
+        }
+
+      };
+
+
+  UrlClassifierAnd(ImmutableList<C> cs) {
+    super(cs);
   }
 
   @Override
-  public final boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null) {
-      return false;
-    }
-    if (getClass() != obj.getClass()) {
-      return false;
-    }
-    UrlClassifierOr<?> other = (UrlClassifierOr<?>) obj;
-    if (cs == null) {
-      if (other.cs != null) {
-        return false;
+  public Classification apply(UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
+    if (!cs.isEmpty()) {
+      Diagnostic.CollectingReceiver<? super UrlValue> delayedR =
+          Diagnostic.CollectingReceiver.from(r);
+      for (C c : cs) {
+        Classification cl = c.apply(x, delayedR);
+        switch (cl) {
+          case INVALID:
+            delayedR.flush();
+            return Classification.INVALID;
+          case MATCH:
+            continue;
+          case NOT_A_MATCH:
+            return Classification.NOT_A_MATCH;
+        }
+        throw new AssertionError(c);
       }
-    } else if (!cs.equals(other.cs)) {
-      return false;
+      delayedR.flush();
     }
-    return true;
+    return Classification.MATCH;
+  }
+
+  @SuppressWarnings("unchecked")
+  static <C extends UrlClassifier>
+  C abstractAnd(
+      Iterable<? extends C> cs, C zero,
+      Function<ImmutableList<C>, C> maker) {
+    ImmutableList.Builder<C> b = ImmutableList.builder();
+    for (C c : cs) {
+      if (c instanceof UrlClassifierAnd<?>) {
+        // Unsound except by convention that
+        // URLClassifier<C> instanceof C
+        b.addAll(((UrlClassifierAnd<C>) c).cs);
+      } else {
+        b.add(c);
+      }
+    }
+    ImmutableList<C> clist = b.build();
+
+    C result;
+    switch (clist.size()) {
+      case 0:
+        result = zero;
+        break;
+      case 1:
+        result = clist.get(0);
+        break;
+      default:
+        result = maker.apply(clist);
+        break;
+    }
+    return Preconditions.checkNotNull(result);
   }
 }

@@ -199,7 +199,9 @@ public final class BuiltinScheme {
   };
   /** https://tools.ietf.org/html/rfc8089 */
   public static final Scheme FILE = new Scheme(
-      ImmutableSet.of("file"), true, -1, SchemePart.PATH, SchemePart.QUERY);
+      ImmutableSet.of("file"), true, -1, SchemePart.PATH, SchemePart.QUERY,
+      // https://tools.ietf.org/html/rfc8089#appendix-E.1
+      SchemePart.USERINFO);
   /** https://tools.ietf.org/html/rfc7230 */
   public static final Scheme HTTP = new Scheme(
       ImmutableSet.of("http"), true, 80,

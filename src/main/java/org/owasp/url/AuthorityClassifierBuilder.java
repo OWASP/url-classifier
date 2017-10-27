@@ -38,7 +38,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -64,7 +63,7 @@ public final class AuthorityClassifierBuilder {
   private boolean matchesAnyHost = false;
   private final ImmutableSet.Builder<Integer> allowedPorts = ImmutableSet.builder();
   private Predicate<? super Integer> allowedPortClassifier = null;
-  private Predicate<? super Optional<String>> allowedUnameClassifier = null;
+  private UserInfoClassifier allowedUserInfoClassifier = null;
   // We intentionally do not allow matching against a password.
   // There is no way to match http://msamuel:hello-kitty@google.com/
   // via this API.  Also, get your own password.
@@ -101,10 +100,10 @@ public final class AuthorityClassifierBuilder {
     if (this.allowedPortClassifier != null) {
       portClassifier = this.allowedPortClassifier;
     }
-    Predicate<? super Optional<String>> unameClassifier = Predicates.alwaysTrue();
-    if (this.allowedUnameClassifier != null) {
-      unameClassifier = this.allowedUnameClassifier;
-    }
+    UserInfoClassifier userInfoClassifier =
+        this.allowedUserInfoClassifier != null
+        ? this.allowedUserInfoClassifier
+        : UserInfoClassifiers.NO_PASSWORD_BUT_USERNAME_IF_ALLOWED_BY_SCHEME;
     return new AuthorityClassifierImpl(
         ipv4Set,
         ipv6Set,
@@ -113,7 +112,7 @@ public final class AuthorityClassifierBuilder {
         matchesAnyHost,
         allowedPortsSorted,
         portClassifier,
-        unameClassifier);
+        userInfoClassifier);
   }
 
   /**
@@ -223,14 +222,14 @@ public final class AuthorityClassifierBuilder {
    * URL with userinfo will match, so
    * http://@example.com/ will not match.
    */
-  public AuthorityClassifierBuilder userName(
-      Predicate<? super Optional<String>> unameIsAllowed) {
-    Preconditions.checkNotNull(unameIsAllowed);
-    if (this.allowedUnameClassifier == null) {
-      allowedUnameClassifier = unameIsAllowed;
-    } else if (unameIsAllowed != Predicates.alwaysFalse()) {  // x || false -> x
-      allowedUnameClassifier = Predicates.or(
-          allowedUnameClassifier, unameIsAllowed);
+  public AuthorityClassifierBuilder userInfo(
+      UserInfoClassifier c) {
+    Preconditions.checkNotNull(c);
+    if (this.allowedUserInfoClassifier == null) {
+      allowedUserInfoClassifier = c;
+    } else {
+      allowedUserInfoClassifier = UserInfoClassifiers.or(
+          allowedUserInfoClassifier, c);
     }
     return this;
   }
@@ -246,12 +245,10 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
   private final boolean matchesAnyHost;
   private final int[] allowedPortsSorted;
   private final Predicate<? super Integer> portClassifier;
-  private final Predicate<? super Optional<String>> unameClassifier;
+  private final UserInfoClassifier userInfoClassifier;
 
   enum Diagnostics implements Diagnostic {
-    PASSWORD_PRESENT,
     INHERITS_PLACEHOLDER_AUTHORITY,
-    USERNAME_DOES_NOT_MATCH,
     DISALLOWED_PORT,
     MISSING_HOST,
     HOST_NOT_IN_APPROVED_SET,
@@ -261,7 +258,7 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
       ImmutableSet<Inet4Address> ipv4Set, ImmutableSet<Inet6Address> ipv6Set,
       ImmutableSet<InternetDomainName> canonHostnameSet, HostGlobMatcher hostGlobMatcher,
       boolean matchesAnyHost, int[] allowedPortsSorted, Predicate<? super Integer> portClassifier,
-      Predicate<? super Optional<String>> unameClassifier) {
+      UserInfoClassifier userInfoClassifier) {
     this.ipv4Set = ipv4Set;
     this.ipv6Set = ipv6Set;
     this.domainNameSet = canonHostnameSet;
@@ -269,7 +266,7 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
     this.matchesAnyHost = matchesAnyHost;
     this.allowedPortsSorted = allowedPortsSorted;
     this.portClassifier = portClassifier;
-    this.unameClassifier = unameClassifier;
+    this.userInfoClassifier = userInfoClassifier;
   }
 
   @Override
@@ -288,16 +285,6 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
     // We don't early out on NOT_A_MATCH in case we find evidence for INVALID.
     Classification result = Classification.MATCH;
 
-    // An authority has the form [uname[':'[password]]'@']host[':'port]
-    if (auth.password.isPresent()) {
-      // There's a password.
-      // We don't encourage password matching in URL classifiers.
-      // Don't put passwords in URLs.
-      // Tell your friends.
-      r.note(Diagnostics.PASSWORD_PRESENT, x);
-      return Classification.INVALID;
-    }
-
     if (x.inheritsPlaceholderAuthority && !matchesAnyHost) {
       // We treat the placeholder authority specially.
       // Whitelisting example.org should not cause a URL that doesn't definitely
@@ -306,9 +293,13 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
       result = Classification.NOT_A_MATCH;
     }
 
-    if (result == Classification.MATCH && !this.unameClassifier.apply(auth.userName)) {
-      r.note(Diagnostics.USERNAME_DOES_NOT_MATCH, x);
-      result = Classification.NOT_A_MATCH;
+    switch (this.userInfoClassifier.apply(x,  r)) {
+      case INVALID:
+        return Classification.INVALID;
+      case NOT_A_MATCH:
+        result = Classification.NOT_A_MATCH;
+        break;
+      case MATCH: break;
     }
 
     int port = auth.portOrNegOne;

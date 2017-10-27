@@ -36,7 +36,6 @@ import java.util.Set;
 
 import org.junit.Test;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,9 +46,16 @@ import com.google.common.collect.Sets;
 @SuppressWarnings({ "javadoc", "static-method" })
 public final class AuthorityClassifierBuilderTest {
 
+  private static final UrlContext TEST_URL_CONTEXT = new UrlContext(new Absolutizer(
+      new SchemeLookupTable(ImmutableList.of(
+          new Scheme(
+              ImmutableSet.of("ssh"), true, 22,
+              Scheme.SchemePart.AUTHORITY, Scheme.SchemePart.PATH,
+              Scheme.SchemePart.USERINFO))),
+          UrlContext.DEFAULT.absolutizer.contextUrl));
+
   private static void runCommonTestsWith(
       AuthorityClassifier p,
-      UrlContext context,
       String... shouldMatch) {
 
     ImmutableList<String> matches = ImmutableList.copyOf(shouldMatch);
@@ -63,12 +69,11 @@ public final class AuthorityClassifierBuilderTest {
             Classification.MATCH, matches,
             Classification.NOT_A_MATCH, notMatches);
 
-    runTests(p, context, inputs);
+    runTests(p, inputs);
   }
 
   private static void runTests(
       AuthorityClassifier p,
-      UrlContext context,
       ImmutableMap<Classification, ImmutableList<String>> inputs) {
 
     Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.CollectingReceiver.from(
@@ -82,7 +87,7 @@ public final class AuthorityClassifierBuilderTest {
         for (int i = 0; i < inputList.size(); ++i) {
           cr.clear();
           String url = inputList.get(i);
-          UrlValue inp = UrlValue.from(context, url);
+          UrlValue inp = UrlValue.from(TEST_URL_CONTEXT, url);
           Classification got = p.apply(inp, cr);
           assertEquals(i + ": " + url, want, got);
         }
@@ -123,11 +128,15 @@ public final class AuthorityClassifierBuilderTest {
       "https://%E4%BE%8B/\ud83d\ude00#",
       // Done with equivalents.
       "//example.com.:/",
+      // Username with a scheme that allows it.
       "ssh://user@server/project.git",
       "ssh://user@sErvEr:22/project.git",
       "ssh://u%73er@server/project.git",
       "ssh://u%2573er@server/project.git",
       "ssh://u%73er@evil/project.git",
+      "ssh://other@server/project.git",
+      "ssh://USER@server/project.git",
+      "file://foo@127.0.0.1/bar",
       ""
       );
 
@@ -157,15 +166,20 @@ public final class AuthorityClassifierBuilderTest {
       "http://localhos%7",
       "http://localhos%",
       "http://localhos%/",
-      "http://localhos%c0%80/"  // Non-minimal encoding
+      "http://localhos%c0%80/",  // Non-minimal encoding
+      // https://tools.ietf.org/html/rfc7230#section-2.7.1 says
+      //    A sender MUST NOT generate the userinfo subcomponent (and its "@"
+      //    delimiter) when an "http" URI reference is generated within a
+      //    message as a request target or header field value.
+      "//@example.com/",
+      "https://@example.com/"
       );
 
 
   @Test
   public void testUnconfiguredClassifier() {
     runCommonTestsWith(
-        AuthorityClassifiers.builder().build(),
-        UrlContext.DEFAULT);
+        AuthorityClassifiers.builder().build());
   }
 
   @Test
@@ -174,7 +188,6 @@ public final class AuthorityClassifierBuilderTest {
         AuthorityClassifiers.builder()
            .host("localhost")
            .build(),
-        UrlContext.DEFAULT,
         "http://localhost/",
         "http://loc%61lhost/",
         "http://localhos%74/");
@@ -182,7 +195,6 @@ public final class AuthorityClassifierBuilderTest {
         AuthorityClassifiers.builder()
            .hostGlob("localhost")
            .build(),
-        UrlContext.DEFAULT,
         "http://localhost/",
         "http://loc%61lhost/",
         "http://localhos%74/");
@@ -194,7 +206,6 @@ public final class AuthorityClassifierBuilderTest {
         AuthorityClassifiers.builder()
            .host("xn--fsq")  // Mandarin for "example"
            .build(),
-        UrlContext.DEFAULT,
         "https://\u4f8b/\ud83d\ude00#",
         "https://xn--fsq/%F0%9F%98%80#",
         "https://%E4%BE%8B/\ud83d\ude00#");
@@ -207,7 +218,6 @@ public final class AuthorityClassifierBuilderTest {
            .host("example", "example.com")
            .port(443)
            .build(),
-        UrlContext.DEFAULT,
         "htTpS://example/",
         "https://example.com/",
         "blob:https://example.com/uuid");
@@ -220,7 +230,6 @@ public final class AuthorityClassifierBuilderTest {
            .host("example", "example.com")
            .port(443, 80)
            .build(),
-        UrlContext.DEFAULT,
         "http://example/",
         "http://example.com:80/",
         "//example.com/",
@@ -245,7 +254,6 @@ public final class AuthorityClassifierBuilderTest {
 
                })
            .build(),
-        UrlContext.DEFAULT,
         "htTpS://example/",
         "https://example.com/",
         "blob:https://example.com/uuid");
@@ -266,7 +274,6 @@ public final class AuthorityClassifierBuilderTest {
 
            })
            .build(),
-        UrlContext.DEFAULT,
         "http://example/",
         "http://example.com:80/",
         "//example.com/",
@@ -281,22 +288,23 @@ public final class AuthorityClassifierBuilderTest {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
             .host("server")
-            .userName(
-                new Predicate<Optional<String>>() {
+            .userInfo(
+                UserInfoClassifiers.and(
+                    UserInfoClassifiers.NO_PASSWORD_BUT_USERNAME_IF_ALLOWED_BY_SCHEME,
+                    new UserInfoClassifier() {
 
-                  @Override
-                  public boolean apply(Optional<String> uname) {
-                    return uname.isPresent() && "user".equals(uname.get());
-                  }
+                      @Override
+                      public Classification apply(
+                          UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
+                        Authority auth = x.getAuthority(r);
+                        return auth != null && auth.userName.isPresent()
+                            && "user".equals(auth.userName.get())
+                            ? Classification.MATCH
+                                : Classification.NOT_A_MATCH;
+                      }
 
-                })
+                    }))
             .build(),
-        new UrlContext(new Absolutizer(
-            new SchemeLookupTable(ImmutableList.of(
-                new Scheme(
-                    ImmutableSet.of("ssh"), true, 22,
-                    Scheme.SchemePart.AUTHORITY, Scheme.SchemePart.PATH))),
-                UrlContext.DEFAULT.absolutizer.contextUrl)),
         "ssh://user@server/project.git",
         "ssh://user@sErvEr:22/project.git",
         "ssh://u%73er@server/project.git");
@@ -310,17 +318,23 @@ public final class AuthorityClassifierBuilderTest {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
             .host("server")
-            .userName(
-                new Predicate<Optional<String>>() {
+            .userInfo(
+                UserInfoClassifiers.and(
+                    UserInfoClassifiers.NO_PASSWORD_BUT_USERNAME_IF_ALLOWED_BY_SCHEME,
+                    new UserInfoClassifier() {
 
-                  @Override
-                  public boolean apply(Optional<String> uname) {
-                    return uname.isPresent() && "user".equals(uname.get());
-                  }
+                      @Override
+                      public Classification apply(
+                          UrlValue x, Diagnostic.Receiver<? super UrlValue> r) {
+                        Authority auth = x.getAuthority(r);
+                        return auth != null && auth.userName.isPresent()
+                            && "user".equals(auth.userName.get())
+                            ? Classification.MATCH
+                                : Classification.NOT_A_MATCH;
+                      }
 
-                })
+                    }))
             .build(),
-        UrlContext.DEFAULT,
         // ssh is a hierarchical scheme, so these particular examples work
         // out of the box.
         "ssh://user@server/project.git",
