@@ -30,9 +30,11 @@ package org.owasp.url;
 
 import static org.junit.Assert.assertEquals;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.junit.Test;
+import org.owasp.url.Diagnostic.Receiver;
 
 import com.google.common.collect.ImmutableList;
 
@@ -427,6 +429,73 @@ public final class UrlClassifierBuilderTest {
     .run();
   }
 
+  @Test
+  public void testDataContentCustom() {
+    String thinkfubase64 =
+        ""
+        + "R0lGODlhPSAnIKUkAAAAACgAAFkAAGRkZICAgI6OjpaWlpmZmaoAAKqqqrwAAL+/"
+        + "v8YAAMvLy8wAANQAANsAANsxMd7e3t8/P+JRUeNbW+Zqaufn5+h7e+uHh+uKiu2U"
+        + "lPGrq/KxsfS+vvTDw/fNzfnc3Prh4f39/f//////////////////////////////"
+        + "////////////////////////////////////////////////////////////////"
+        + "/////////////////yH+Jztkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgianNvdXRw"
+        + "dXQiKS5pbm5lckhUTUwgPSAiVGhpbmtGdSByZWNrb25zIENhamEgaXMgcmF0aGVy"
+        + "IG5lYXQuIjsgLyogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg"
+        + "ICAgICAgICAgICAgICAgICAgICAgIAQgICAgACwAAAAAjwBYAAAG/sCRcEgsGo/I"
+        + "pHLJbDqfxod0Cq1ar9isVjjtSrfgsHiM9HrJ6LTaaTav33B12x2v27Pz7n3Pb+b1"
+        + "fYGCQ1QjbYOIfYBchYmOdY2PknuLk5ZxlZeaaZmbnmBnn6KgnaOmT6Wnqkqhq65L"
+        + "ra+yUamzr7G2s3S5tru8sr6/rrjCqsHFp8fIo8rLn83Om9BQANXW19jYRtZaIhUd"
+        + "IGvcWIdb2efoAETaVxMR7xEYaexW5Vnp+OznVhgV/v4URJDZV4+YlXwI1Y0g+KSB"
+        + "hQwQI3IYmO3KNCcJ8wlh6GSBhg4gQ3qgSA/VxSYZ0w3h2OTCxBAwRYQjea2gwYMp"
+        + "S7J0smFI/ogOaHYysRe0ohKW1Zp8ECLwiMJtT5EI3VjmJJapKyuqvEIPnVSjRUoy"
+        + "qgUG68acSaGOy1oTodqaYcEasnpVrlO0adfpxBt1oV2vhOhytfsWrd69fA/DPcvx"
+        + "D9Gxke6KLZxT8Vq/idkuxkfEMbHHlPuGzmg5L+bMp8dxDuw58tybmi9LBrs6tenV"
+        + "tffVhlxoDi3YjBd/JQzYdtTisdcaLlIOtO+jhONONv6Uo9DilX8Dcn7SrPHZm+Ve"
+        + "Z5iyaijuwIPLDg1eufjo2BOa3/74OfTppUVTT34cPnnS2vV2DGjt6ZdfgdW9N118"
+        + "8gX4xWudEMjefcLxlyBiFarnHoCd/rlhH2+uFbjEeLQpmOF+GqqzFWt6oEfWgRSu"
+        + "h+J3/CFYI3VR0VGfhBMmQWJXJsrIIFyrNedLHoH5GB2M0gGJoZD/OWnUIR8i+ZqS"
+        + "+N3YZHhPmmahljhCSAVRVoYIpoijgfkjlxWmo+ObSJLl3ZobCkdnXkihA2ecf4y4"
+        + "5JkpXminfyVOdk4Au/QpZno0YnmibUw2umV/C2IjQKL2WclElpY56qWhj0La6XDV"
+        + "KHDkZ4xK94SMcSk53KYGsqrXotEY08oBBwyB6wi49rrrr7nWismtvBarqxC/Hhus"
+        + "sGvs0iuvuxoLbK7PMttsJdRGiyyy1CprrRyxPFttsNNK+y0aUoKdy0e66t6RaruK"
+        + "vAhvIO/O66689lJiZr6C4MuvHf7+C0fAAr9BcMHgPoDwvZHsu/AYRj748LWOTTyw"
+        + "ZxYbXHHGFH/IMbqafpxwvSKTc3AYQQAAIf4qLyAvLyAgICAgICAgICAgICAgICAg"
+        + "ICAgICAgICAgICAgICAgICAgICAgBCAgICAAOw==";
+
+    // Tests courtesy "Abusing IDNA Standard" section of
+    // https://www.blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf
+    new TestBuilder(
+        UrlClassifiers.builder()
+        .schemeData(MediaTypeClassifiers.builder().type("image", "gif").build())
+        .content(
+            new ContentClassifier() {
+              @Override
+              public Classification apply(UrlValue x, Receiver<? super UrlValue> r) {
+                Object content = x.getDecodedContent();
+                if (content instanceof ByteBuffer) {
+                  ByteBuffer bb = (ByteBuffer) content;
+                  int pos = bb.position();
+                  if (bb.limit() >= pos + 6
+                      && bb.get(pos + 0) == 'G'
+                      && bb.get(pos + 1) == 'I'
+                      && bb.get(pos + 2) == 'F'
+                      && bb.get(pos + 3) == '8'
+                      && bb.get(pos + 4) == '9'
+                      && bb.get(pos + 5) == 'a') {
+                    return Classification.MATCH;
+                  }
+                }
+                return Classification.NOT_A_MATCH;
+              }
+            })
+        .build())
+    .expectMatches(
+        "data:image/gif;base64," + thinkfubase64)
+    .expectDoesNotMatch(
+        "data:image/gif;base64,")
+    .expectInvalid(
+        "data:image/gif;base64")
+    .run();
+  }
 
   // TODO: simple content predicate with magic number check for gif
 

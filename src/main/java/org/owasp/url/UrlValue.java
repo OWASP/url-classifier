@@ -456,7 +456,7 @@ public final class UrlValue {
     return rawContent.orNull();
   }
 
-  private Optional<Object> decodedContent;
+  private Optional<?> decodedContent;
   /**
    * The decoded content.
    *
@@ -468,7 +468,7 @@ public final class UrlValue {
     if (decodedContent == null) {
       decodedContent = Optional.absent();
       if (ranges.contentLeft >= 0) {
-        decodedContent = Optional.<Object>fromNullable(
+        decodedContent = Preconditions.checkNotNull(
             scheme.decodeContent(urlText, ranges));
       }
     }

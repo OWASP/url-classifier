@@ -177,7 +177,7 @@ public final class BuiltinScheme {
             if (c == ';' && i + 7 <= ranges.contentMetadataRight
                 && "base64".regionMatches(
                     true, 0, schemeSpecificPart, i + 1, 6)
-                && (i + 7 == ranges.contentLeft
+                && (i + 7 == ranges.contentMetadataRight
                     || schemeSpecificPart.charAt(i + 7) == ';')) {
               byte[] bytes;
               try {
