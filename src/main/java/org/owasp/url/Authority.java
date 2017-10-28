@@ -45,9 +45,9 @@ import com.ibm.icu.text.IDNA;
  * It has the general form [user[':'password]'@']host[':'port].
  */
 public final class Authority {
-  /** The username component of the userinfo. */
+  /** The userName component of the userInfo. */
   public final Optional<String> userName;
-  /** The password component of the userinfo. */
+  /** The password component of the userInfo. */
   public final Optional<String> password;
   /**
    * The host represented as an
@@ -99,6 +99,9 @@ public final class Authority {
 
     // An authority has the form [uname[':'[password]]'@']host[':'port]
     if (at >= 0) {
+      if (auth.lastIndexOf('@', at - 1) >= 0) {
+        r.note(Diagnostics.MORE_THAN_ONE_AT_IN_AUTHORITY, x);
+      }
       int unameEnd = at;
       if (colon >= 0 && colon < at) {
         unameEnd = colon;
@@ -177,7 +180,7 @@ public final class Authority {
       Object hostValue;
       try {
         if (InetAddresses.isUriInetAddress(rawHost)) {
-          // Numeric addresses should be ascii.
+          // Numeric addresses should be ASCII.
           if (hasNonAsciiMetacharacters(rawHost)) {
             r.note(Diagnostics.NON_ASCII_METACHARACTERS, x);
             return null;
@@ -241,6 +244,16 @@ public final class Authority {
   }
 
   enum Diagnostics implements Diagnostic {
+    /**
+     * STD 66 is clear that userInfo cannot contain an '@' sign
+     * nor can the host.
+     * <p>
+     * <a href="https://www.blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf">
+     * A New Era of SSRF: Exploiting URL Parsers In Trending Programming Languages</a>
+     * details where tolerant systems that inconsistently pick the first or last '@'
+     * can be exploited.
+     */
+    MORE_THAN_ONE_AT_IN_AUTHORITY,
     MALFORMED_PASSWORD,
     MALFORMED_USERNAME,
     PORT_OUT_OF_RANGE,

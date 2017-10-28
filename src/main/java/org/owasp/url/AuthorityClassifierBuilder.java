@@ -53,6 +53,22 @@ import com.ibm.icu.text.IDNA;
 /**
  * Builder for {@link AuthorityClassifier}s.
  *
+ * <p>
+ * The main use case is to whitelist some group of named hosts or a small
+ * number of numeric IP addresses.
+ * Arbitrary subdomains may be matched via a glob-style syntax.
+ *
+ * <h2>Caveats</h2>
+ * Host names are properly decoded before being compared.
+ * This means that <tt>file://localhost/path</tt> is treated the same as
+ * <tt>file://loc%61lhost/path</tt>.
+ * The <tt>file:</tt> scheme specification uses "<tt>localhost</tt>" as a
+ * keyword value, but there is no way to distinguish between these two
+ * potentially different authorities via this API.
+ * A custom classifier may examine the
+ * {@linkplain UrlValue#getRawAuthority raw authority} to make such a
+ * distinction if needed.
+ *
  * @see AuthorityClassifiers#builder
  */
 public final class AuthorityClassifierBuilder {

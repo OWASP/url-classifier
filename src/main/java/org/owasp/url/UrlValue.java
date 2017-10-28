@@ -47,9 +47,21 @@ import com.google.common.net.MediaType;
 public final class UrlValue {
 
   /**
-   * An oddity in the URL spec (STD 66/RFC 3986) or related specs that would
-   * probably not be there if it could be redrafted without concern
-   * for backwards compatibility or spec complexity.
+   * A corner case in the commonly accepted grammar.
+   *
+   * <p>A corner case may be
+   * <ul>
+   *   <li>An oddity in the URL spec (STD 66/RFC 3986)
+   *       or related specs (e.g. IDNA, HTTP) that would
+   *       probably not be there if it could be redrafted without concern
+   *       for backwards compatibility or spec complexity.</li>
+   *   <li>A commonly tolerated deviation from the standard
+   *       that is interpreted differently by different URL consumers.</li>
+   *   <li>A clearly specified behavior that is infrequently
+   *       used intentionally in production systems but which has
+   *       often has serious security consequences when used.</li>
+   * </ul>
+   *
    * <p>
    * If we rely on other URL consumers interpreting the
    * {@link UrlValue#originalUrlText original URL text} according to spec,
@@ -60,7 +72,20 @@ public final class UrlValue {
    * Additionally, different URL consumers come to different conclusions
    * about what the spec says in some cases.
    */
-  public enum UrlSpecCornerCase {
+  public enum CornerCase implements Diagnostic {
+    /**
+     * URLs with NULs are a common problem case when they reach code
+     * that assumes strings are NUL-terminated.
+     * <p>
+     * STD 66 disallows unencoded control control characters: octets 0x0-0x1F
+     * so disallowing unencoded NULs does not restrict any strictly compliant URLs.
+     * <p>
+     * {@code data:} URLs that need to embed NULs
+     * in content typically base64 encode and NULs in encoded content will
+     * not trigger this corner case.
+     */
+    UNENCODED_NUL,
+
     /**
      * When the special path components ({@code .} and {@code ..}) are
      * percent-encoded, different URL consumers behave in different ways.
@@ -73,6 +98,34 @@ public final class UrlValue {
      * @see <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1042347">Mozilla bug 1042347</a>
      */
     ENCODED_DOT_PATH_SEGMENST,
+
+    /**
+     * Present if simplifying the path interpreted ".." relative to "/" or "".
+     * <p>
+     * This is a clearly speced case that is widely implemented correctly yet
+     * has been widely exploited via directory traversal attacks:
+     * <tt>../../../../etc/passwd</tt> and has few non-buggy uses.
+     * <p>
+     * For example,
+     * Interpreting "/../bar" relative to "http://example.com/foo/"
+     * leads to simplying "http://example.com/foo/../bar" to
+     * "http://example.com/bar".
+     * But the "/.." is applied to "/foo" so root's parent is not reached.
+     * <p>
+     * On the other hand,
+     * Interpreting "/../../bar" relative to "http://example.com/foo/"
+     * leads to simplifying "http://example.com/foo/../../bar" to
+     * "http://example.com/bar".
+     * In this case, the first "/.." is applied to "/foo" and the second
+     * is applied to "/" so the root's parent is reached.
+     * <p>
+     * It is safe to enable this corner case if you plan on substituting
+     * {@link UrlValue#urlText} for {@link UrlValue#originalUrlText}
+     * in your output, but may not be if you plan on using the original text
+     * or other computations have already made assumptions based on it.
+     */
+    PATH_SIMPLIFICATION_REACHES_ROOT_PARENT,
+
     /**
      * {@code file://bar} has authority "bar" but can be the result of
      * resolving a path-relative URL {@code .//bar} against a context URL
@@ -83,6 +136,7 @@ public final class UrlValue {
      * </a>
      */
     PATH_AUTHORITY_AMBIGUITY,
+
     /**
      * The <a href="https://tools.ietf.org/html/rfc3986#section-5.2.4"><i>remove_dot_segments</i></a>
      * spec method simplifies "{@code .}" and "{@code ..}" path segments out of a merged path.
@@ -91,11 +145,13 @@ public final class UrlValue {
      * {@code remove_dot_segments("foo/../baz')} which yields {@code "/bar"}.
      */
     RELATIVE_URL_MERGED_TO_ABSOLUTE,
+
     /**
      * Per {@link UrlContext.MicrosoftPathStrategy}, some backslashes were flipped to
      * forward slashes.
      */
     FLIPPED_SLASHES,
+
     /**
      * The authority one of a small set of characters that are treated differently by
      * <a href="http://unicode.org/faq/idn.html#7">different versions of the IDNA</a> spec.
@@ -111,10 +167,39 @@ public final class UrlValue {
      * This is not triggered if the domain name is punycode encoded.
      */
     IDNA_TRANSITIONAL_DIFFERENCE,
+
     /**
      * The host may be valid per Std 66 but is not per the stricter IDNA requirements.
      */
     IDNA_INVALID_HOST,
+
+    /**
+     * Newlines (CR & LF) are allowed in path components encoded.
+     * Even when allowed encoded they can often be used in
+     * <a href="https://www.owasp.org/index.php/HTTP_Response_Splitting">
+     * header splitting attacks</a>.
+     */
+    NEWLINES_IN_PATH,
+
+    /**
+     * Indicates unencoded & disallowed ASCII characters in the userInfo
+     * component of a hierarchical URL's authority
+     * <p>
+     * STD 66 defines a small set of characters in the authority.
+     * Tolerant parsers typically allow more.
+     * This parser allows more, but flags ASCII characters that are
+     * not strictly allowed as a corner-case.
+     * <p>
+     * For example, ':' and '@' out of place in the userInfo component can
+     * cause different parsers to find different boundaries between
+     * user info and host or between password and userName,
+     * while newlines in authority components can contribute to header splitting
+     * problems.
+     *
+     * @see <a href="https://www.blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf">
+     * A New Era of SSRF: Exploiting URL Parsers In Trending Programming Languages</a>
+     */
+    AUTHORITY_NOT_ASCII_STRICT,
   }
 
   /** The context in which the URL is interpreted. */
@@ -131,24 +216,6 @@ public final class UrlValue {
   public final boolean inheritsPlaceholderAuthority;
   private final String rawAuthority;
   private final Authority authority;
-
-  /**
-   * True iff simplifying the path interpreted ".." relative to "/" or "".
-   * <p>
-   * For example,
-   * Interpreting "/../bar" relative to "http://example.com/foo/"
-   * leads to simplying "http://example.com/foo/../bar" to
-   * "http://example.com/bar".
-   * But the "/.." is applied to "/foo" so root's parent is not reached.
-   * <p>
-   * On the other hand,
-   * Interpreting "/../../bar" relative to "http://example.com/foo/"
-   * leads to simplifying "http://example.com/foo/../../bar" to
-   * "http://example.com/bar".
-   * In this case, the first "/.." is applied to "/foo" and the second
-   * is applied to "/" so the root's parent is reached.
-   */
-  public final boolean pathSimplificationReachedRootsParent;
 
   /** The full text of the URL after resolving against the base URL. */
   public final String urlText;
@@ -171,7 +238,7 @@ public final class UrlValue {
    *
    * @see UrlClassifierBuilder#tolerate
    */
-  public final ImmutableSet<UrlSpecCornerCase> cornerCases;
+  public final ImmutableSet<CornerCase> cornerCases;
 
   /**
    * @param context a context used to flesh out relative URLs.
@@ -229,8 +296,8 @@ public final class UrlValue {
     this.context = context;
     this.originalUrlText = originalUrlText;
 
-    EnumSet<UrlSpecCornerCase> extraCornerCases = EnumSet.noneOf(
-        UrlSpecCornerCase.class);
+    EnumSet<CornerCase> extraCornerCases = EnumSet.noneOf(
+        CornerCase.class);
 
     String refUrlText = originalUrlText;
     switch (context.microsoftPathStrategy) {
@@ -245,7 +312,7 @@ public final class UrlValue {
         if (scheme == null || scheme.isHierarchical) {
           refUrlText = refUrlText.replace('\\', '/');
           if (!refUrlText.equals(originalUrlText)) {
-            extraCornerCases.add(UrlSpecCornerCase.FLIPPED_SLASHES);
+            extraCornerCases.add(CornerCase.FLIPPED_SLASHES);
           }
         }
         break;
@@ -257,8 +324,6 @@ public final class UrlValue {
     this.scheme  = abs.scheme;
     this.urlText = abs.absUrlText;
     this.ranges = abs.absUrlRanges;
-    this.pathSimplificationReachedRootsParent =
-        abs.pathSimplificationReachedRootsParent;
     if (ranges == null || ranges.authorityLeft == ranges.authorityRight) {
       this.rawAuthority = null;
       this.authority = null;
@@ -272,14 +337,14 @@ public final class UrlValue {
       this.authority = Authority.decode(this, Diagnostic.Receiver.NULL);
       if (this.authority != null) {
         if (!this.authority.hasValidHost()) {
-          extraCornerCases.add(UrlSpecCornerCase.IDNA_INVALID_HOST);
+          extraCornerCases.add(CornerCase.IDNA_INVALID_HOST);
         } else if (this.authority.hasTransitionalDifference()) {
-          extraCornerCases.add(UrlSpecCornerCase.IDNA_TRANSITIONAL_DIFFERENCE);
+          extraCornerCases.add(CornerCase.IDNA_TRANSITIONAL_DIFFERENCE);
         }
       }
     }
 
-    ImmutableSet<UrlSpecCornerCase> allCornerCases = abs.cornerCases;
+    ImmutableSet<CornerCase> allCornerCases = abs.cornerCases;
     if (!extraCornerCases.isEmpty()) {
       extraCornerCases.addAll(allCornerCases);
       allCornerCases = Sets.immutableEnumSet(extraCornerCases);

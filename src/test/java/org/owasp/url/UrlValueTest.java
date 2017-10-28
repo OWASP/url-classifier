@@ -86,7 +86,10 @@ public final class UrlValueTest {
              "foo/./bar/./baz/../../boo/../../",
          }) {
       UrlValue v = UrlValue.from(url);
-      assertFalse(url, v.pathSimplificationReachedRootsParent);
+      assertFalse(
+          url,
+          v.cornerCases.contains(
+              UrlValue.CornerCase.PATH_SIMPLIFICATION_REACHES_ROOT_PARENT));
     }
     // Path simplification does reach root parent
     for (String url :
@@ -111,7 +114,10 @@ public final class UrlValueTest {
              "http://foo.com/bar/../baz/../..",
          }) {
       UrlValue v = UrlValue.from(url);
-      assertTrue(url, v.pathSimplificationReachedRootsParent);
+      assertTrue(
+          url,
+          v.cornerCases.contains(
+              UrlValue.CornerCase.PATH_SIMPLIFICATION_REACHES_ROOT_PARENT));
     }
   }
 
@@ -214,7 +220,7 @@ public final class UrlValueTest {
     assertEquals("/C|/foo/bar", u.getRawPath());
     assertEquals(
         u.toString(),
-        ImmutableSet.of(UrlValue.UrlSpecCornerCase.FLIPPED_SLASHES),
+        ImmutableSet.of(UrlValue.CornerCase.FLIPPED_SLASHES),
         u.cornerCases);
 
     String jsUrl = "javascript:/\\./.test(0)";

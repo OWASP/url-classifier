@@ -28,6 +28,7 @@
 
 package org.owasp.url;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 
 import com.google.common.base.Preconditions;
@@ -84,9 +85,8 @@ public final class Absolutizer {
    */
   Result absolutize(String refUrlText) {
     int eos = endOfScheme(refUrlText);
-    boolean pathSimplificationReachedRootsParent = false;
-    EnumSet<UrlValue.UrlSpecCornerCase> cornerCases = EnumSet.noneOf(
-        UrlValue.UrlSpecCornerCase.class);
+    EnumSet<UrlValue.CornerCase> cornerCases = EnumSet.noneOf(
+        UrlValue.CornerCase.class);
 
     Scheme scheme;
     PartRanges refUrlRanges, absUrlRanges;
@@ -101,8 +101,7 @@ public final class Absolutizer {
       if (scheme.isHierarchical && refUrlRanges.pathRight >= 0) {
         StringBuilder sb = new StringBuilder(refUrlText.length());
         sb.append(refUrlText, 0, refUrlRanges.pathRight);
-        pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(
-            sb, refUrlRanges.pathLeft, cornerCases);
+        removeDotSegmentsInPlace(sb, refUrlRanges.pathLeft, cornerCases);
         if (sb.length() != refUrlRanges.pathRight) {
           // Path normalization did some work.
           sb.append(refUrlText, refUrlRanges.pathRight, refUrlText.length());
@@ -200,10 +199,9 @@ public final class Absolutizer {
 //      System.err.println("absPathLeft=" + absPathLeft + ", partBuf=" + partBuf);
       if (absPathLeft >= 0) {
         if (fixupEncodedDots(partBuf, absPathLeft)) {
-          cornerCases.add(UrlValue.UrlSpecCornerCase.ENCODED_DOT_PATH_SEGMENST);
+          cornerCases.add(UrlValue.CornerCase.ENCODED_DOT_PATH_SEGMENST);
         }
-        pathSimplificationReachedRootsParent = removeDotSegmentsInPlace(
-            partBuf, absPathLeft, cornerCases);
+        removeDotSegmentsInPlace(partBuf, absPathLeft, cornerCases);
         abs.withPath(absPathLeft, partBuf.length());
       }
 //      System.err.println("absPathRight=" + absPathRight + ", partBuf=" + partBuf);
@@ -273,14 +271,26 @@ public final class Absolutizer {
         && absUrlRanges.pathRight - absUrlRanges.pathLeft >= 2
         && '/' == absUrlText.charAt(absUrlRanges.pathLeft)
         && '/' == absUrlText.charAt(absUrlRanges.pathLeft + 1)) {
-      cornerCases.add(UrlValue.UrlSpecCornerCase.PATH_AUTHORITY_AMBIGUITY);
+      cornerCases.add(UrlValue.CornerCase.PATH_AUTHORITY_AMBIGUITY);
+    }
+
+    if (refUrlText.indexOf((char) 0) >= 0) {
+      cornerCases.add(UrlValue.CornerCase.UNENCODED_NUL);
+    }
+    if (refUrlRanges != null) {
+      if (CRLF.between(
+          refUrlText, refUrlRanges.pathLeft, refUrlRanges.pathRight)) {
+        cornerCases.add(UrlValue.CornerCase.NEWLINES_IN_PATH);
+      }
+      if (ASCII_DISALLOWED_AUTHORITY.betweenUnencoded(
+          refUrlText, refUrlRanges.authorityLeft, refUrlRanges.authorityRight)) {
+        cornerCases.add(UrlValue.CornerCase.AUTHORITY_NOT_ASCII_STRICT);
+      }
     }
 
     return new Result(
-        scheme, refUrlText, refUrlRanges, absUrlText, absUrlRanges,
-        pathSimplificationReachedRootsParent, cornerCases);
+        scheme, refUrlText, refUrlRanges, absUrlText, absUrlRanges, cornerCases);
   }
-
 
 
   /**
@@ -298,23 +308,19 @@ public final class Absolutizer {
     public final String absUrlText;
     /** */
     public final PartRanges absUrlRanges;
-    /** */
-    public final boolean pathSimplificationReachedRootsParent;
 
-    public final ImmutableSet<UrlValue.UrlSpecCornerCase> cornerCases;
+    public final ImmutableSet<UrlValue.CornerCase> cornerCases;
 
     /** */
     public Result(
         Scheme scheme, String originalUrlText,
         PartRanges originalUrlRanges, String absUrlText, PartRanges absUrlRanges,
-        boolean pathSimplificationReachedRootsParent,
-        EnumSet<UrlValue.UrlSpecCornerCase> cornerCases) {
+        EnumSet<UrlValue.CornerCase> cornerCases) {
       this.scheme = scheme;
       this.originalUrlText = originalUrlText;
       this.originalUrlRanges = originalUrlRanges;
       this.absUrlText = absUrlText;
       this.absUrlRanges = absUrlRanges;
-      this.pathSimplificationReachedRootsParent = pathSimplificationReachedRootsParent;
       this.cornerCases = Sets.immutableEnumSet(cornerCases);
     }
   }
@@ -334,12 +340,8 @@ public final class Absolutizer {
   }
 
   private static final boolean DEBUG_RDS = false;
-  /**
-   * @return true iff a "prefix/" or "/prefix/" before path[:left]
-   *     would have been removed because of ".." handling were it present.
-   */
-  static boolean removeDotSegmentsInPlace(StringBuilder path, int left,
-      EnumSet<UrlValue.UrlSpecCornerCase> cornerCases) {
+  static void removeDotSegmentsInPlace(StringBuilder path, int left,
+      EnumSet<UrlValue.CornerCase> cornerCases) {
     // The code below has excerpts from the spec interspersed.
     // The "input buffer" and "output buffer" referred to in the spec
     // are both just regions of path.
@@ -439,7 +441,7 @@ public final class Absolutizer {
             // navigation.
             inputBufferStart += 1;
             cornerCases.add(
-                UrlValue.UrlSpecCornerCase.RELATIVE_URL_MERGED_TO_ABSOLUTE);
+                UrlValue.CornerCase.RELATIVE_URL_MERGED_TO_ABSOLUTE);
           }
           continue;
         }
@@ -473,7 +475,9 @@ public final class Absolutizer {
     //     remove_dot_segments.
     path.setLength(outputBufferEnd);
 
-    return dotDotNavigatesPastRoot;
+    if (dotDotNavigatesPastRoot) {
+      cornerCases.add(UrlValue.CornerCase.PATH_SIMPLIFICATION_REACHES_ROOT_PARENT);
+    }
   }
 
   static final boolean RECODE_ENCODED_SPECIAL_PATH_SEGMENTS = false;
@@ -546,4 +550,59 @@ public final class Absolutizer {
         && 'e' == (partBuf.charAt(i + 2) | 32);
   }
 
+  private static final AsciiSet CRLF;
+  private static final AsciiSet ASCII_DISALLOWED_AUTHORITY;
+  static {
+    boolean[] crlf = new boolean[0x20];
+    crlf['\n'] = crlf['\r'] = true;
+    CRLF = new AsciiSet(crlf);
+    boolean[] disallowed = new boolean[0x80];
+    Arrays.fill(disallowed, 0, disallowed.length, true);
+    disallowed['-'] = disallowed['.'] = disallowed['_'] = disallowed['~'] = false;
+    for (int i = 'A'; i <= 'Z'; ++i) { disallowed[i] = disallowed[i | 32] = false; }
+    for (int i = '0'; i <= '9'; ++i) { disallowed[i] = false; }
+    // Allowed in Pct-decoded or in userinfo or as authority delimiter
+    disallowed['%'] = disallowed[':'] = disallowed['@'] = false;
+    // Allowed in IPV6 and IPFuture
+    disallowed['['] = disallowed[']'] = false;
+    // Sub-delims allowed in userInfo and regName
+    disallowed['!'] = disallowed['$'] = disallowed['&'] = disallowed['\'']
+        = disallowed['('] = disallowed[')'] = disallowed['*'] = disallowed['+']
+        = disallowed[','] = disallowed[';'] = disallowed['='] = false;
+    ASCII_DISALLOWED_AUTHORITY = new AsciiSet(disallowed);
+  }
+}
+
+final class AsciiSet {
+  private final boolean[] cps;
+
+  AsciiSet(boolean[] cps) {
+    this.cps = cps;
+  }
+
+  boolean betweenUnencoded(String s, int left, int right) {
+    if (left >= 0) {
+      for (int i = left; i < right; ++i) {
+        char c = s.charAt(i);
+        if (c < cps.length && cps[c]) { return true; }
+      }
+    }
+    return false;
+  }
+
+  boolean between(String s, int left, int right) {
+    if (left >= 0) {
+      for (int i = left; i < right; ++i) {
+        char c = s.charAt(i);
+        if (c < cps.length && cps[c]) { return true; }
+        if (c == '%') {
+          int dc = Percent.pctHex2(s, i, right);
+          if (0 <= dc && dc < cps.length && cps[dc]) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
 }

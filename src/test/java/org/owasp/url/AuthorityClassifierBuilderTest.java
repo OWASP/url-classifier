@@ -149,6 +149,7 @@ public final class AuthorityClassifierBuilderTest {
       "http://@/",
       "http://0/",
       "http://foo@/",
+      "http://foo@bar@baz.com/",
       "http://%@example.com/",
       "http://example.com:@/",
       "http://:/",
@@ -190,14 +191,16 @@ public final class AuthorityClassifierBuilderTest {
            .build(),
         "http://localhost/",
         "http://loc%61lhost/",
-        "http://localhos%74/");
+        "http://localhos%74/",
+        "file://localhost/");
     runCommonTestsWith(
         AuthorityClassifiers.builder()
            .hostGlob("localhost")
            .build(),
         "http://localhost/",
         "http://loc%61lhost/",
-        "http://localhos%74/");
+        "http://localhos%74/",
+        "file://localhost/");
   }
 
   @Test

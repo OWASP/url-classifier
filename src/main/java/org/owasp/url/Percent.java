@@ -126,7 +126,7 @@ final class Percent {
     return Optional.<CharSequence>of(decoded.append(s, writtenCursor, right));
   }
 
-  private static int pctHex2(CharSequence s, int i, int limit) {
+  static int pctHex2(CharSequence s, int i, int limit) {
     if (i + 2 >= limit) { return -1; }
     char h0 = s.charAt(i + 1);
     char h1 = s.charAt(i + 2);

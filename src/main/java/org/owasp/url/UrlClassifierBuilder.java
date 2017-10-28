@@ -116,15 +116,7 @@ public final class UrlClassifierBuilder {
    * @return this
    */
   public UrlClassifier build() {
-    EnumSet<UrlClassifierImpl.GlobalFlag> flags =
-        EnumSet.noneOf(UrlClassifierImpl.GlobalFlag.class);
-    if (this.allowPathsThatReachRootsParent) {
-      flags.add(UrlClassifierImpl.GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
-    }
-    if (this.matchesNuls) {
-      flags.add(UrlClassifierImpl.GlobalFlag.ALLOW_NULS);
-    }
-    ImmutableSet<UrlValue.UrlSpecCornerCase> toleratedCornerCaseSet =
+    ImmutableSet<UrlValue.CornerCase> toleratedCornerCaseSet =
         Sets.immutableEnumSet(this.toleratedCornerCases);
     ImmutableSet<Scheme> allowedSchemeSet = allowedSchemes.build();
     MediaTypeClassifier mtc = mediaTypeClassifier != null
@@ -152,7 +144,6 @@ public final class UrlClassifierBuilder {
         : ContentClassifiers.any();
 
     return new UrlClassifierImpl(
-        flags,
         toleratedCornerCaseSet,
         allowedSchemeSet,
         mtc,
@@ -166,47 +157,9 @@ public final class UrlClassifierBuilder {
   }
 
 
-  //// Flags that affect multiple sub-classifiers.
-  private boolean matchesNuls = false;
-  private boolean allowPathsThatReachRootsParent = false;
-  private final EnumSet<UrlValue.UrlSpecCornerCase> toleratedCornerCases =
-      EnumSet.noneOf(UrlValue.UrlSpecCornerCase.class);
-
-  /**
-   * URLs with NULs are a common problem case.
-   * By default no URL is matched that contains the raw char 0.
-   * {@code data:} URLs that need to embed NULs
-   * in content typically base64 encode and NULs in encoded content will
-   * not cause a mismatch.
-   * If allowing NULs is definitely required enable this.
-   *
-   * @param allow true to allow NULs.
-   * @return this
-   */
-  public UrlClassifierBuilder nuls(boolean allow) {
-    this.matchesNuls = allow;
-    return this;
-  }
-
-  /**
-   * If not enabled (the default), apply(x) will return INVALID for
-   * {@linkplain UrlValue#pathSimplificationReachedRootsParent overlong paths} like
-   * "{@code ../../../...}".
-   *
-   * <p>These paths are rejected as INVALId by default.
-   *
-   * <p>It is safe to enable this if you plan on substituting
-   * {@link UrlValue#urlText} for {@link UrlValue#originalUrlText}
-   * in your output, but not if you plan on using the original text
-   * or other computations have already made assumptions based on it.
-   *
-   * @param enable true to tolerate.
-   * @return this
-   */
-  public UrlClassifierBuilder rootParent(boolean enable) {
-    this.allowPathsThatReachRootsParent = enable;
-    return this;
-  }
+  //// Decisions that affect multiple sub-classifiers.
+  private final EnumSet<UrlValue.CornerCase> toleratedCornerCases =
+      EnumSet.noneOf(UrlValue.CornerCase.class);
 
   /**
    * Don't reject as {@linkplain Classification#INVALID invalid} URLs
@@ -215,7 +168,7 @@ public final class UrlClassifierBuilder {
    * @param cornerCases to tolerate.  Unioned with previous calls' arguments.
    * @return this
    */
-  public UrlClassifierBuilder tolerate(UrlValue.UrlSpecCornerCase... cornerCases) {
+  public UrlClassifierBuilder tolerate(UrlValue.CornerCase... cornerCases) {
     return tolerate(Arrays.asList(cornerCases));
   }
 
@@ -227,8 +180,8 @@ public final class UrlClassifierBuilder {
    * @return this
    */
   public UrlClassifierBuilder tolerate(
-      Iterable<? extends UrlValue.UrlSpecCornerCase> cornerCases) {
-    for (UrlValue.UrlSpecCornerCase cornerCase : cornerCases) {
+      Iterable<? extends UrlValue.CornerCase> cornerCases) {
+    for (UrlValue.CornerCase cornerCase : cornerCases) {
       this.toleratedCornerCases.add(cornerCase);
     }
     return this;
@@ -475,9 +428,7 @@ public final class UrlClassifierBuilder {
 }
 
 final class UrlClassifierImpl implements UrlClassifier {
-  final boolean matchesNuls;
-  final boolean allowPathsThatReachRootsParent;
-  final ImmutableSet<UrlValue.UrlSpecCornerCase> toleratedCornerCaseSet;
+  final ImmutableSet<UrlValue.CornerCase> toleratedCornerCaseSet;
   final ImmutableSet<Scheme> allowedSchemeSet;
   final MediaTypeClassifier mediaTypeClassifier;
   final AuthorityClassifier authorityClassifier;
@@ -488,8 +439,7 @@ final class UrlClassifierImpl implements UrlClassifier {
   final ContentClassifier contentClassifier;
 
   UrlClassifierImpl(
-      EnumSet<GlobalFlag> flags,
-      ImmutableSet<UrlValue.UrlSpecCornerCase> toleratedCornerCaseSet,
+      ImmutableSet<UrlValue.CornerCase> toleratedCornerCaseSet,
       ImmutableSet<Scheme> allowedSchemeSet,
       MediaTypeClassifier mediaTypeClassifier,
       AuthorityClassifier authorityClassifier,
@@ -498,9 +448,6 @@ final class UrlClassifierImpl implements UrlClassifier {
       QueryClassifier queryClassifier,
       FragmentClassifier fragmentClassifier,
       ContentClassifier contentClassifier) {
-    this.matchesNuls = flags.contains(GlobalFlag.ALLOW_NULS);
-    this.allowPathsThatReachRootsParent = flags.contains(
-        GlobalFlag.ALLOW_PATHS_THAT_REACH_ROOT_PARENT);
     this.toleratedCornerCaseSet = toleratedCornerCaseSet;
     this.allowedSchemeSet = allowedSchemeSet;
     this.mediaTypeClassifier = mediaTypeClassifier;
@@ -518,7 +465,6 @@ final class UrlClassifierImpl implements UrlClassifier {
   }
 
   enum Diagnostics implements Diagnostic {
-    UNTOLERATED_CORNER_CASE,
     NULS,
     MALFORMED_ACCORING_TO_SCHEME,
     DISALLOWED_SCHEME,
@@ -540,11 +486,11 @@ final class UrlClassifierImpl implements UrlClassifier {
         Diagnostic.CollectingReceiver.from(r);
 
     if (!this.toleratedCornerCaseSet.containsAll(x.cornerCases)) {
-      r.note(Diagnostics.UNTOLERATED_CORNER_CASE, x);
-      return Classification.INVALID;
-    }
-    if (!matchesNuls && x.originalUrlText.indexOf('\0') >= 0) {
-      r.note(Diagnostics.NULS, x);
+      for (UrlValue.CornerCase cc : x.cornerCases) {
+        if (!toleratedCornerCaseSet.contains(cc)) {
+          r.note(cc, x);
+        }
+      }
       return Classification.INVALID;
     }
     if (x.ranges == null) {
@@ -576,11 +522,6 @@ final class UrlClassifierImpl implements UrlClassifier {
       if (!decPathOpt.isPresent()) {
         r.note(Diagnostics.MALFORMED_PATH, x);
         return Classification.INVALID;
-      }
-      if (!allowPathsThatReachRootsParent
-          && x.pathSimplificationReachedRootsParent) {
-        r.note(Diagnostics.PATH_SIMPLIFICATION_REACHED_ROOTS_PARENT, x);
-        return Classification.NOT_A_MATCH;
       }
       String decPath = decPathOpt.get();
       if (negativePathPattern != null

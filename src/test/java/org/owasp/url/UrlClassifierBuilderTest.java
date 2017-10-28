@@ -127,13 +127,23 @@ public final class UrlClassifierBuilderTest {
     new TestBuilder(UrlClassifiers.builder().build())
         .expectInvalid(
             "\0",
-            "%2e%2E/%2e%2E/%2e%2E/etc/passwd"  // corner case
+            "..",
+            "%2e%2E/%2e%2E/%2e%2E/etc/passwd",
+            "file://a\nb@example.com/",
+            "file://a\rb@example.com/",
+            "file://a\r\nb@example.com/",
+            "file://a\\b@example.com/",
+            "file:/a\nbb/",
+            "file:/a\rbb/",
+            "file:/a\r\nbb/",
+            "file:/a%0abb/",
+            "file:/a%0dbb/",
+            "file:/a%0a%0dbb/"
             )
         .expectDoesNotMatch(
             "",
             "/",
             "/foo/",
-            "..",
             "%",
             "data:foo/bar,",
             "https://www.example.net./",
@@ -160,9 +170,9 @@ public final class UrlClassifierBuilderTest {
             "https://www.example.net./"
             )
         .expectDoesNotMatch(
-            "..",
             "data:foo/bar,",
             "mailto:user@domain.org")
+        .expectInvalid("..")
         .run();
   }
 
@@ -177,7 +187,8 @@ public final class UrlClassifierBuilderTest {
                     .build())
             .build())
         .expectInvalid(
-            "%2e%2E/%2e%2E/%2e%2E/etc/passwd")  // spec corner case
+            "..",
+            "%2e%2E/%2e%2E/%2e%2E/etc/passwd")  // spec corner cases
         .expectMatches(
             "https://www.example.net./")
         .expectDoesNotMatch(
@@ -186,7 +197,6 @@ public final class UrlClassifierBuilderTest {
             "%c0%80",
             "/",
             "/foo/",
-            "..",
             "file:///foo",
             "data:text/plain,Hello%20World!",
             "mailto:user@domain.org")
