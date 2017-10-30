@@ -76,7 +76,7 @@ mvn clean source:jar javadoc:jar verify -DperformRelease=true \
 
 # We need the hash so that users can copy/paste the latest version's
 # BUILD system dependency snippet.
-export JAR_HASH="$(shasum -a 1 -b "target/url-$version.jar" \
+export JAR_HASH="$(shasum -a 1 -b "target/url-$NEW_VERSION.jar" \
                    | perl -pe 's/\s.*//')"
 
 # Update the version in the docs.
