@@ -42,7 +42,14 @@ import com.google.common.collect.ImmutableSet;
 public class QueryClassifierBuilderTest {
 
   private static void runCommonTestsWith(
-      QueryClassifier p,
+      QueryClassifier c,
+      UrlContext context,
+      String... shouldMatch) {
+    runCommonTestsWith(new QueryClassifier[] { c }, context, shouldMatch);
+  }
+
+  private static void runCommonTestsWith(
+      QueryClassifier[] cs,
       UrlContext context,
       String... shouldMatch) {
 
@@ -52,33 +59,35 @@ public class QueryClassifierBuilderTest {
     ImmutableSet<String> matchSet = ImmutableSet.copyOf(shouldMatch);
 
     try {
-      for (int i = 0; i < MAY_MATCH.size(); ++i) {
-        cr.clear();
-        String url = MAY_MATCH.get(i);
-        assertEquals(
-            i + ": " + url,
+      for (QueryClassifier c : cs) {
+        for (int i = 0; i < MAY_MATCH.size(); ++i) {
+          cr.clear();
+          String url = MAY_MATCH.get(i);
+          assertEquals(
+              i + ": " + url,
 
-            matchSet.contains(url)
-            ? Classification.MATCH
-            : Classification.NOT_A_MATCH,
+              matchSet.contains(url)
+              ? Classification.MATCH
+              : Classification.NOT_A_MATCH,
 
-            p.apply(UrlValue.from(context, url), cr));
-      }
+              c.apply(UrlValue.from(context, url), cr));
+        }
 
-      for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
-        cr.clear();
-        String url = MUST_BE_INVALID.get(i);
-        assertEquals(
-            i + ": " + url,
-            Classification.INVALID,
-            p.apply(UrlValue.from(context, url), cr));
-      }
-      for (String url : matchSet) {
-        cr.clear();
-        assertEquals(
-            url,
-            Classification.MATCH,
-            p.apply(UrlValue.from(context, url), cr));
+        for (int i = 0; i < MUST_BE_INVALID.size(); ++i) {
+          cr.clear();
+          String url = MUST_BE_INVALID.get(i);
+          assertEquals(
+              i + ": " + url,
+              Classification.INVALID,
+              c.apply(UrlValue.from(context, url), cr));
+        }
+        for (String url : matchSet) {
+          cr.clear();
+          assertEquals(
+              url,
+              Classification.MATCH,
+              c.apply(UrlValue.from(context, url), cr));
+        }
       }
       cr.clear();
     } finally {
@@ -158,11 +167,34 @@ public class QueryClassifierBuilderTest {
   @Test
   public void testDisallowRepeatingA() throws Exception {
     runCommonTestsWith(
-        QueryClassifiers.builder()
+        new QueryClassifier[] {
+            QueryClassifiers.builder()
             .mayHaveKeys("a", "c")
+            .mayNotRepeatKeys("a", "b")
+            .mustHaveKeys("a")
+            .build(),
+
+            QueryClassifiers.builder()
+            .mayHaveKeys("a", "c")
+            .mayNotRepeatKeys("b")
             .mayNotRepeatKeys("a")
             .mustHaveKeys("a")
             .build(),
+
+            QueryClassifiers.builder()
+            .mayHaveKeys("a", "c")
+            .mayNotRepeatKeys(Predicates.equalTo("a"))
+            .mayNotRepeatKeys(Predicates.equalTo("b"))
+            .mustHaveKeys("a")
+            .build(),
+
+            QueryClassifiers.builder()
+            .mayHaveKeys("a", "c")
+            .mayNotRepeatKeys(Predicates.equalTo("b"))
+            .mayNotRepeatKeys(Predicates.equalTo("a"))
+            .mustHaveKeys("a")
+            .build(),
+        },
         UrlContext.DEFAULT,
         "?a=b&c=d",
         "?%61=%62&%63=%64",

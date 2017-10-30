@@ -1,3 +1,4 @@
+
 # URL Classifier [![Build Status](https://travis-ci.org/OWASP/url-classifier.svg?branch=master)](https://travis-ci.org/OWASP/url-classifier)
 
 Declarative syntax for defining sets of URLs.  No need for error-prone regexs.
@@ -6,9 +7,7 @@ Declarative syntax for defining sets of URLs.  No need for error-prone regexs.
   * [Problem](#problem)
   * [Simplifying Assumptions](#assumptions)
 
-## <a name="usage"></a>Usage
-
-### Java <sub><sup>([javadoc][javadoc])</sup></sub>
+## <a name="usage"></a>Usage <sub><sup>([javadoc][javadoc])</sup></sub>
 
 [javadoc]: http://static.javadoc.io/org.owasp/url/1.2.2/org/owasp/url/package-summary.html#package.description
 
@@ -24,7 +23,7 @@ class C {
       .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
       .authority(
           AuthorityClassifiers.builder()
-          // We whitelist some subdomains of certain hosts
+          // We whitelist some subdomains of hosts we trust.
           .host("**.example.com", "**.example.net")
           .build())
       // We allow access to .html files
@@ -60,6 +59,78 @@ class C {
 ```
 
 
+## <a name="invalid"></a> Invalid URLs
+
+A *UrlClassifier* returns `MATCH` for some URLs and `NOT_A_MATCH` for
+others, but it can also return `INVALID`.  An `INVALID` URL is one that
+
+  * Is not syntactically valid per specifications and which is not
+    coerced consistently to a valid URL by tolerant parsers.<br>
+    `http:/foo` is invalid.  Although it is
+    syntactically valid according to STD 66, it is missing a host
+    required by RFC 7230 which defines the `http` protocol.<br>
+    `http://例/` is valid even though it is rejected by
+    a strict interpretation of STD 66 because there is a
+    widely & consistently implemented way of handling non-ASCII
+    characters in host names.
+  * Or is valid per specifications, but is not consistently
+    handled by implementations, and/or has negative security
+    consequences in many implementations.<br>
+    For example, `http://example.com/../../../../etc/passwd` is
+    equivalent to `http://example.com/etc/passwd` per the specification
+    has been used in [dircectory traversal attacks][dir_traverse]).
+
+[dir_traverse]: https://www.owasp.org/index.php/Path_Traversal
+
+There are several [corner cases](http://static.javadoc.io/org.owasp/url/1.2.2/org/owasp/url/UrlValue.CornerCase.html) that are rejected as `INVALID` by default.
+
+If you need to treat one or more as valid, you can tell your *UrlClassifier*
+to *tolerate* them thus:
+
+```java
+import static org.owasp.url.UrlValue.CornerCase.*;
+
+{
+  UrlClassifiers.builder()
+      // Allow too many ..
+      .tolerate(PATH_SIMPLIFICATION_REACHES_ROOT_PARENT)
+      // More policy here ...
+      .build();
+
+  // Alternatively, if we're triggering this particular corner case
+  // because the default context doesn't capture our application path
+  // we can use a different context when classifying UrlValues.
+  UrlContext context = UrlContext.DEFAULT.withContextUrl(
+      "http://example.com/foo/bar/baz/");
+}
+```
+
+## <a name="diagnostics"></a> Diagnostics
+
+Sometimes its nice to know which URLs do not match a classifier and why.
+
+You can tie UrlClassifiers into your logging framework by implementing
+a [`Diagnostic.Receiver`](http://static.javadoc.io/org.owasp/url/1.2.2/org/owasp/url/Diagnostic.Receiver.html).
+
+```java
+Classification classifyNoisily(UrlClassifier c, UrlValue x) {
+  return c.apply(
+      x,
+      (d, v) -> { System.err.println(v + " did not match due to " + d); }
+      // Use your favorite logging framework instead of System.err.
+      );
+}
+
+Classification classifyNoisilyOldStyle(UrlClassifier c, UrlValue x) {
+  // Old style anonymous class.
+  Diagnostic.Receiver<UrlValue> r = new Diagnostic.Receiver<UrlValue>() {
+    @Override public void note(Diagnostic d, UrlValue x) {
+      System.err.println(x + " did not match due to " + d);
+    }
+  };
+  return c.apply(x, r);
+}
+```
 
 
 ## <a name="problem"></a>Problem

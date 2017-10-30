@@ -32,20 +32,13 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.net.InetAddresses;
 import com.google.common.net.InternetDomainName;
 import com.ibm.icu.text.IDNA;
@@ -170,6 +163,20 @@ public final class AuthorityClassifierBuilder {
     ipv6s.addAll(Arrays.asList(addresses));
     return this;
   }
+  /** @see #host(String...) */
+  public AuthorityClassifierBuilder host(InetAddress... addresses) {
+    for (InetAddress address : addresses) {
+      if (address instanceof Inet4Address) {
+        ipv4s.add((Inet4Address) address);
+      } else if (address instanceof Inet6Address) {
+        ipv6s.add((Inet6Address) address);
+      } else {
+        throw new IllegalArgumentException(address.toString());
+      }
+    }
+    return this;
+  }
+
   /** @see #hostGlob(Iterable) */
   public AuthorityClassifierBuilder hostGlob(String... globs) {
     return hostGlob(Arrays.asList(globs));
@@ -388,7 +395,7 @@ final class HostGlob {
     }
     this.anyPublicSuffix = globPattern.endsWith(".*");
     if (this.anyPublicSuffix) {
-      right -= 2;
+      right = Math.max(right - 2, left);
     }
     if (left == right) {
       this.middleParts = ImmutableList.of();
@@ -430,174 +437,5 @@ final class HostGlob {
     } else if (!middleParts.equals(other.middleParts))
       return false;
     return true;
-  }
-}
-
-/** Collects host globs together for quicker matching. */
-final class HostGlobMatcher {
-
-  /** We group globs by the kinds of ambiguity they allow. */
-  static final class Group {
-    final boolean anySubdomain;  // Starts with **.
-    final boolean aSubdomain;  // Starts with *.
-    final boolean anyPublicSuffix;  // Ends with a public suffix
-    /** A suffix trie over host parts. */
-    final Trie<String, Boolean> middleParts;
-
-    Group(
-        boolean anySubdomain,
-        boolean aSubdomain,
-        boolean anyPublicSuffix,
-        Trie<String, Boolean> middleParts) {
-      this.anySubdomain = anySubdomain;
-      this.aSubdomain = aSubdomain;
-      this.anyPublicSuffix = anyPublicSuffix;
-      this.middleParts = middleParts;
-    }
-  }
-
-  private final ImmutableList<Group> groups;
-
-  HostGlobMatcher(Iterable<? extends HostGlob> globs) {
-    @SuppressWarnings("unchecked")
-    Map<List<String>, Boolean>[] byBits = new Map[8];
-    for (HostGlob glob : globs) {
-      int i = (glob.anyPublicSuffix ? 1 : 0)
-          | (glob.anySubdomain ? 2 : 0)
-          | (glob.aSubdomain ? 4 : 0);
-      if (byBits[i] == null) {
-        byBits[i] = Maps.newHashMap();
-      }
-      byBits[i].put(glob.middleParts.reverse(), true);
-    }
-    ImmutableList.Builder<Group> b = ImmutableList.builder();
-    for (int i = 0; i < byBits.length; ++i) {
-      if (byBits[i] == null) { continue; }
-      boolean anyPublicSuffix = 0 != (i & 1);
-      boolean anySubdomain = 0 != (i & 2);
-      boolean aSubdomain = 0 != (i & 4);
-      Group g = new Group(
-          anySubdomain, aSubdomain, anyPublicSuffix,
-          Trie.from(ImmutableList.copyOf(byBits[i].entrySet())));
-      b.add(g);
-    }
-    this.groups = b.build();
-  }
-
-  boolean matches(InternetDomainName name) {
-    ImmutableList<String> parts = name.parts();
-    int nParts = parts.size();
-    int publicSuffixSize = -1;
-    next_group:
-    for (Group g : groups) {
-      int right = nParts;
-      int left = 0;
-      if (g.anyPublicSuffix) {
-        if (name.hasPublicSuffix()) {
-          if (publicSuffixSize == -1) {
-            publicSuffixSize = name.publicSuffix().parts().size();
-          }
-          right -= publicSuffixSize;
-        } else {
-          continue next_group;
-        }
-      }
-      if (g.aSubdomain) { ++left; }
-      if (left > right) { continue; }
-      Trie<String, Boolean> t = g.middleParts;
-      if (g.anySubdomain) {
-        boolean sawPartial = false;
-        for (int i = right; --i >= left;) {
-          sawPartial = sawPartial || Boolean.TRUE.equals(t.value);
-          Trie<String, Boolean> child = t.els.get(parts.get(i));
-          if (child == null) {
-            break;
-          }
-          t = child;
-        }
-        if (sawPartial) { return true; }
-      } else {
-        for (int i = right; --i >= left;) {
-          Trie<String, Boolean> child = t.els.get(parts.get(i));
-          if (child == null) {
-            continue next_group;
-          }
-          t = child;
-        }
-        return Boolean.TRUE.equals(t.value);
-      }
-    }
-    return false;
-  }
-}
-
-final class Trie<T extends Comparable<T>, V> {
-  final ImmutableSortedMap<T, Trie<T, V>> els;
-  final V value;
-
-  Trie(ImmutableSortedMap<T, Trie<T, V>> els, V value) {
-    this.els = els;
-    this.value = value;
-  }
-
-  static <T extends Comparable<T>, V>
-  Trie<T, V> from(List<Map.Entry<List<T>, V>> entries) {
-    List<Map.Entry<List<T>, V>> entriesSorted = Lists.newArrayList(entries);
-    Collections.sort(
-        entriesSorted,
-        new Comparator<Map.Entry<List<T>, V>>() {
-
-          @Override
-          public int compare(Map.Entry<List<T>, V> a, Map.Entry<List<T>, V> b) {
-            List<T> aList = a.getKey();
-            int aSize = aList.size();
-            List<T> bList = b.getKey();
-            int bSize = bList.size();
-            int minSize = Math.min(aSize, bSize);
-            for (int i = 0; i < minSize; ++i) {
-              int delta = aList.get(i).compareTo(bList.get(i));
-              if (delta != 0) { return delta; }
-            }
-            return aSize - bSize;
-          }
-
-        });
-    return collate(entriesSorted, 0, 0, entriesSorted.size());
-  }
-
-  static <T extends Comparable<T>, V>
-  Trie<T, V> collate(List<Map.Entry<List<T>, V>> entries, int depth, int left, int right) {
-    V value = null;
-    ImmutableSortedMap.Builder<T, Trie<T, V>> b = ImmutableSortedMap.naturalOrder();
-
-    int childLeft = left;
-    Map.Entry<List<T>, V> leftEntry = null;
-    if (left != right) {
-      leftEntry = entries.get(childLeft);
-      if (leftEntry.getKey().size() == depth) {
-        value = leftEntry.getValue();
-        ++childLeft;
-        leftEntry = childLeft < right
-            ? Preconditions.checkNotNull(entries.get(childLeft)) : null;
-      }
-    }
-
-    if (childLeft < right) {
-      T keyAtDepth = Preconditions.checkNotNull(leftEntry).getKey().get(depth);
-      for (int i = childLeft + 1; i < right; ++i) {
-        Map.Entry<List<T>, V> e = entries.get(i);
-        T k = e.getKey().get(depth);
-        if (keyAtDepth.compareTo(k) != 0) {
-          b.put(keyAtDepth, collate(entries, depth + 1, childLeft, i));
-          childLeft = i;
-          keyAtDepth = k;
-        }
-      }
-      if (childLeft < right) {
-        b.put(keyAtDepth, collate(entries, depth + 1, childLeft, right));
-      }
-    }
-
-    return new Trie<T, V>(b.build(), value);
   }
 }

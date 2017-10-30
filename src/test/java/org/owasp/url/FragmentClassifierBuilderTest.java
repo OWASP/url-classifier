@@ -156,6 +156,12 @@ public final class FragmentClassifierBuilderTest {
               .match(Predicates.equalTo(Optional.of("#foo/../bar/baz")))
               .build());
       assertFragmentClassification(
+          Classification.NOT_A_MATCH,
+          inputUrl,
+          FragmentClassifiers.builder()
+              .match(Predicates.equalTo(Optional.of("#boo")))
+              .build());
+      assertFragmentClassification(
           Classification.MATCH,
           inputUrl,
           FragmentClassifiers.builder()
@@ -173,5 +179,20 @@ public final class FragmentClassifierBuilderTest {
                   })
               .build());
     }
+  }
+
+  @Test
+  public void testComplexFragmentInvalidPropagates() {
+    FragmentClassifier fc = FragmentClassifiers.builder()
+        .matchAsUrl(
+            UrlClassifiers.builder()
+            .scheme(BuiltinScheme.HTTP)
+            .build())
+        .build();
+
+    assertFragmentClassification(
+        Classification.INVALID,
+        "#../../..",
+        fc);
   }
 }

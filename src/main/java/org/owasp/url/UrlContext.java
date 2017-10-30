@@ -133,4 +133,35 @@ public final class UrlContext {
         ? this
         : new UrlContext(absolutizer, microsoftPathStrategy, us);
   }
+
+  /**
+   * A context like this but with the given base URL.
+   *
+   * @param contextUrl An absolute URL with a recognized, hierarchical scheme.
+   */
+  public UrlContext withContextUrl(String contextUrl) {
+    if (contextUrl.equals(this.absolutizer.contextUrl)) {
+      return this;
+    }
+    return new UrlContext(
+        new Absolutizer(absolutizer.schemes, contextUrl),
+        this.microsoftPathStrategy, this.urlSource);
+  }
+
+  /** A context like this but with the given base URL. */
+  public UrlContext withContextUrl(UrlValue url) {
+    return withContextUrl(url.urlText);
+  }
+
+  /**
+   * A context like this but which uses the given scheme lookup table
+   * instead.
+   * <p>This does not union the given table with the current table.
+   * To do that, see {@link SchemeLookupTable#union}.
+   */
+  public UrlContext withSchemes(SchemeLookupTable schemes) {
+    return new UrlContext(
+        new Absolutizer(schemes, absolutizer.contextUrl),
+        this.microsoftPathStrategy, this.urlSource);
+  }
 }

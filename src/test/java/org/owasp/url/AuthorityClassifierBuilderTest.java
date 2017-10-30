@@ -30,6 +30,8 @@ package org.owasp.url;
 
 import static org.junit.Assert.assertEquals;
 
+import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +43,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.net.InetAddresses;
+import com.google.common.net.InternetDomainName;
 
 
 @SuppressWarnings({ "javadoc", "static-method" })
@@ -115,13 +119,14 @@ public final class AuthorityClassifierBuilderTest {
       "http://foo.com:65535/",
       "http://foo.com:1/",
       "http://example.com:80/",
+      "http://example.com:8000/",
       "http://[3ffe:0:0:0:0:0:0:1]/",
       "http://192.168.1.1/",
       "http://192.168.1.1:1/",
       "http://localhost/",
       "http://loc%61lhost/",
-      "http://localhos%74/",
       // 20
+      "http://localhos%74/",
       // All of these should be equivalent.
       "https://\u4f8b/\ud83d\ude00#",
       "https://xn--fsq/%F0%9F%98%80#",
@@ -133,11 +138,13 @@ public final class AuthorityClassifierBuilderTest {
       "ssh://user@sErvEr:22/project.git",
       "ssh://u%73er@server/project.git",
       "ssh://u%2573er@server/project.git",
+      // 30
       "ssh://u%73er@evil/project.git",
       "ssh://other@server/project.git",
       "ssh://USER@server/project.git",
       "file://foo@127.0.0.1/bar",
-      ""
+      "",
+      "data:text/plain,Hello%20World!"
       );
 
   private static final ImmutableList<String> MUST_BE_INVALID = ImmutableList.of(
@@ -173,7 +180,8 @@ public final class AuthorityClassifierBuilderTest {
       //    delimiter) when an "http" URI reference is generated within a
       //    message as a request target or header field value.
       "//@example.com/",
-      "https://@example.com/"
+      "https://@example.com/",
+      "ssh://USER:pwd@server/project.git"
       );
 
 
@@ -182,6 +190,65 @@ public final class AuthorityClassifierBuilderTest {
     runCommonTestsWith(
         AuthorityClassifiers.builder().build());
   }
+
+  @Test
+  public void testOneHost() {
+    runCommonTestsWith(
+        AuthorityClassifiers.builder()
+        .host("example.com")
+        .build(),
+        "//example.com/",
+        "blob:https://example.com/uuid",
+        "http://example.com:80/",
+        "http://example.com:8000/",
+        "//example.com.:/"
+        );
+    runCommonTestsWith(
+        AuthorityClassifiers.builder()
+        .host(InternetDomainName.from("example.com"))
+        .build(),
+        "//example.com/",
+        "blob:https://example.com/uuid",
+        "http://example.com:80/",
+        "http://example.com:8000/",
+        "//example.com.:/"
+        );
+  }
+
+  @Test
+  public void testOneIpv4() {
+    runCommonTestsWith(
+        AuthorityClassifiers.builder()
+        .host(InetAddresses.forUriString("127.0.0.1"))
+        .build(),
+        // Localhost does not show here because we do not assume
+        // localhost == 127.0.0.1 or resolve hostnames.
+        "file://foo@127.0.0.1/bar"
+        );
+    runCommonTestsWith(
+        AuthorityClassifiers.builder()
+        .host((Inet4Address) InetAddresses.forUriString("127.0.0.1"))
+        .build(),
+        "file://foo@127.0.0.1/bar"
+        );
+  }
+
+  @Test
+  public void testOneIpv6() {
+    runCommonTestsWith(
+        AuthorityClassifiers.builder()
+        .host(InetAddresses.forUriString("[3ffe:0:0:0:0:0:0:1]"))
+        .build(),
+        "http://[3ffe:0:0:0:0:0:0:1]/"
+        );
+    runCommonTestsWith(
+        AuthorityClassifiers.builder()
+        .host((Inet6Address) InetAddresses.forUriString("[3ffe:0:0:0:0:0:0:1]"))
+        .build(),
+        "http://[3ffe:0:0:0:0:0:0:1]/"
+        );
+  }
+
 
   @Test
   public void testAllowLocalhost() {
@@ -232,6 +299,19 @@ public final class AuthorityClassifierBuilderTest {
         AuthorityClassifiers.builder()
            .host("example", "example.com")
            .port(443, 80)
+           .build(),
+        "http://example/",
+        "http://example.com:80/",
+        "//example.com/",
+        "//example.com.:/",
+        "htTpS://example/",
+        "https://example.com/",
+        "blob:https://example.com/uuid");
+    runCommonTestsWith(
+        AuthorityClassifiers.builder()
+           .host("example", "example.com")
+           .port(80)
+           .port(443)
            .build(),
         "http://example/",
         "http://example.com:80/",
@@ -343,6 +423,79 @@ public final class AuthorityClassifierBuilderTest {
         "ssh://user@server/project.git",
         "ssh://user@sErvEr:22/project.git",
         "ssh://u%73er@server/project.git");
+  }
+
+  @Test
+  public void testStarStarHostGlobs() {
+    runTests(
+        AuthorityClassifiers.builder()
+        .hostGlob("**.foo.com", "**.bar.*")
+        .build(),
+        ImmutableMap.of(
+            Classification.NOT_A_MATCH,
+            ImmutableList.of("//foo.org", "//bar.unknown", "//baz.com",
+                "//bar.foo.org"),
+            Classification.MATCH,
+            ImmutableList.of(
+                "//foo.com", "//a.foo.com", "//a.b.foo.com",
+                "//bar.com", "//bar.org", "//bar.co.uk",
+                "//a.bar.com", "//a.b.bar.com"
+                )
+            ));
+  }
+
+  @Test
+  public void testAnyHostGlob() {
+    runTests(
+        AuthorityClassifiers.builder()
+        .hostGlob("**", "**.bar.*")
+        .build(),
+        ImmutableMap.of(
+            Classification.MATCH,
+            ImmutableList.of(
+                "//foo.org", "//bar.unknown", "//baz.com",
+                "//bar.foo.org",
+                "//foo.com", "//a.foo.com", "//a.b.foo.com",
+                "//bar.com", "//bar.org", "//bar.co.uk",
+                "//a.bar.com", "//a.b.bar.com"
+                )
+            ));
+  }
+
+  @Test
+  public void testStarOnlyHostGlobs() {
+    runTests(
+        AuthorityClassifiers.builder()
+        .hostGlob("**.*")
+        .build(),
+        ImmutableMap.of(
+            Classification.NOT_A_MATCH,
+            ImmutableList.of("//bar.unknown"),
+            Classification.MATCH,
+            ImmutableList.of(
+                "//foo.org", "//baz.com", "//bar.foo.org",
+                "//foo.com", "//a.foo.com", "//a.b.foo.com",
+                "//bar.com", "//bar.org", "//bar.co.uk",
+                "//a.bar.com", "//a.b.bar.com"
+                )
+            ));
+    runTests(
+        AuthorityClassifiers.builder()
+        .hostGlob("*.*")
+        .build(),
+        ImmutableMap.of(
+            Classification.NOT_A_MATCH,
+            ImmutableList.of(
+                "//bar.unknown",
+                "//a.foo.com", "//a.b.foo.com",
+                "//a.bar.com", "//a.b.bar.com",
+                "//bar.foo.org"),
+            Classification.MATCH,
+            ImmutableList.of(
+                "//foo.org", "//baz.com",
+                "//foo.com", "//bar.com", "//bar.org", "//bar.co.uk"
+                )
+            ));
   }
 
   @Test

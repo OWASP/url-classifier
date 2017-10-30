@@ -99,8 +99,8 @@ import com.google.common.collect.Sets;
  * (note the missing '{@code ,}' will not match any classifier) but
  * "{@code data:text/plain,}" will match if the content
  * classifier matches the empty string.  Schemes that naturally have
- * embedded content include "{@code about:}", "{@code blob:}", "{@code data:}", and
- * "{@code javascript:}".
+ * embedded content include "{@code about:}", "{@code blob:}", "{@code data:}",
+ * and "{@code javascript:}".
  *
  * @see UrlClassifiers#builder
  */
@@ -188,7 +188,8 @@ public final class UrlClassifierBuilder {
   }
 
 
-  private final ImmutableSet.Builder<Scheme> allowedSchemes = ImmutableSet.builder();
+  private final ImmutableSet.Builder<Scheme> allowedSchemes =
+      ImmutableSet.builder();
   private MediaTypeClassifier mediaTypeClassifier;
 
   //// Sub-classifiers of kind scheme     MATCH_ME://...
@@ -251,8 +252,10 @@ public final class UrlClassifierBuilder {
   }
 
   //// Sub-classifiers of kind path       http://example.com/MATCH_ME?...
-  private final ImmutableSet.Builder<String> positivePathGlobs = ImmutableSet.builder();
-  private final ImmutableSet.Builder<String> negativePathGlobs = ImmutableSet.builder();
+  private final ImmutableSet.Builder<String> positivePathGlobs =
+      ImmutableSet.builder();
+  private final ImmutableSet.Builder<String> negativePathGlobs =
+      ImmutableSet.builder();
   /**
    * Allow URLs whose paths match the given globs.
    *
@@ -459,11 +462,6 @@ final class UrlClassifierImpl implements UrlClassifier {
     this.contentClassifier = contentClassifier;
   }
 
-  enum GlobalFlag {
-    ALLOW_NULS,
-    ALLOW_PATHS_THAT_REACH_ROOT_PARENT,
-  }
-
   enum Diagnostics implements Diagnostic {
     NULS,
     MALFORMED_ACCORING_TO_SCHEME,
@@ -536,16 +534,14 @@ final class UrlClassifierImpl implements UrlClassifier {
       }
     }
 
-    if (mediaTypeClassifier != null) {
-      if (x.getContentMediaType() != null
-          || x.scheme == BuiltinScheme.DATA) {
-        cr.clear();
-        Classification c = mediaTypeClassifier.apply(x, cr);
-        if (c != Classification.MATCH) {
-          cr.flush();
-          r.note(Diagnostics.MEDIA_TYPE_DID_NOT_MATCH, x);
-          return c;
-        }
+    if (x.getContentMediaType() != null
+        || x.scheme == BuiltinScheme.DATA) {
+      cr.clear();
+      Classification c = mediaTypeClassifier.apply(x, cr);
+      if (c != Classification.MATCH) {
+        cr.flush();
+        r.note(Diagnostics.MEDIA_TYPE_DID_NOT_MATCH, x);
+        return c;
       }
     }
     if (s.naturallyEmbedsContent || x.ranges.contentLeft >= 0) {

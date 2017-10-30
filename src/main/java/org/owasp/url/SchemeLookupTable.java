@@ -31,6 +31,7 @@ package org.owasp.url;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 /** Maps scheme names like "http" or "HTTP" to Schemes. */
 public final class SchemeLookupTable {
@@ -41,7 +42,10 @@ public final class SchemeLookupTable {
       new SchemeLookupTable(ImmutableList.<Scheme>of());
 
   /**
-   * @param additionalSchemes any schemes beyond the builtins to recognize.
+   * @param additionalSchemes any schemes beyond the {@linkplain BuiltinScheme built-in}s
+   *     to recognize.
+   * @throws IllegalArgumentException if two schemes have overlapping
+   *     {@link Scheme#lcaseNames}.
    */
   public SchemeLookupTable(Iterable<? extends Scheme> additionalSchemes) {
     ImmutableMap.Builder<String, Scheme> b = ImmutableMap.builder();
@@ -66,4 +70,17 @@ public final class SchemeLookupTable {
     return s != null ? s : Scheme.UNKNOWN;
   }
 
+  /**
+   * A lookup table whose that resolves any name resolved by one of the given tables.
+   *
+   * @throws IllegalArgumentException if lookupTables contain two distinct
+   *   schemes with overlapping {@link Scheme#lcaseNames}.
+   */
+  public static SchemeLookupTable union(SchemeLookupTable... lookupTables) {
+    ImmutableSet.Builder<Scheme> schemes = ImmutableSet.builder();
+    for (SchemeLookupTable lookupTable : lookupTables) {
+      schemes.addAll(lookupTable.additionalSchemes.values());
+    }
+    return new SchemeLookupTable(schemes.build());
+  }
 }

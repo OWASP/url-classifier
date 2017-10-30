@@ -31,18 +31,20 @@ package org.owasp.url;
 import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import org.junit.Test;
 import org.owasp.url.Diagnostic.Receiver;
+import org.owasp.url.UrlValue.CornerCase;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 @SuppressWarnings({"javadoc", "static-method"})
 public final class UrlClassifierBuilderTest {
 
   static final class TestBuilder {
-    private final UrlClassifier c;
+    private final ImmutableList<UrlClassifier> cs;
     private final ImmutableList.Builder<UrlValue> expectInvalid
         = ImmutableList.builder();
     private final ImmutableList.Builder<UrlValue> expectMatches
@@ -51,19 +53,14 @@ public final class UrlClassifierBuilderTest {
         = ImmutableList.builder();
     private UrlContext context = UrlContext.DEFAULT;
 
-    TestBuilder(UrlClassifier c) {
-      this.c = c;
+    TestBuilder(UrlClassifier... cs) {
+      this.cs = ImmutableList.copyOf(cs);
     }
 
     TestBuilder expectInvalid(String... urlTexts) {
       for (String urlText : urlTexts) {
         expectInvalid.add(UrlValue.from(context, urlText));
       }
-      return this;
-    }
-
-    TestBuilder expectInvalid(UrlValue... urlValues) {
-      expectInvalid.addAll(Arrays.asList(urlValues));
       return this;
     }
 
@@ -74,20 +71,10 @@ public final class UrlClassifierBuilderTest {
       return this;
     }
 
-    TestBuilder expectMatches(UrlValue... urlValues) {
-      expectMatches.addAll(Arrays.asList(urlValues));
-      return this;
-    }
-
     TestBuilder expectDoesNotMatch(String... urlTexts) {
       for (String urlText : urlTexts) {
         expectDoesNotMatch.add(UrlValue.from(context, urlText));
       }
-      return this;
-    }
-
-    TestBuilder expectDoesNotMatch(UrlValue... urlValues) {
-      expectDoesNotMatch.addAll(Arrays.asList(urlValues));
       return this;
     }
 
@@ -105,17 +92,19 @@ public final class UrlClassifierBuilderTest {
       Diagnostic.CollectingReceiver<UrlValue> cr = Diagnostic.CollectingReceiver.from(
           TestUtil.STDERR_RECEIVER);
       try {
-        for (UrlValue x : expectInvalid.build()) {
-          cr.clear();
-          assertEquals(debug(x), Classification.INVALID, c.apply(x, cr));
-        }
-        for (UrlValue x : expectMatches.build()) {
-          cr.clear();
-          assertEquals(debug(x), Classification.MATCH, c.apply(x, cr));
-        }
-        for (UrlValue x : expectDoesNotMatch.build()) {
-          cr.clear();
-          assertEquals(debug(x), Classification.NOT_A_MATCH, c.apply(x, cr));
+        for (UrlClassifier c : cs) {
+          for (UrlValue x : expectInvalid.build()) {
+            cr.clear();
+            assertEquals(debug(x), Classification.INVALID, c.apply(x, cr));
+          }
+          for (UrlValue x : expectMatches.build()) {
+            cr.clear();
+            assertEquals(debug(x), Classification.MATCH, c.apply(x, cr));
+          }
+          for (UrlValue x : expectDoesNotMatch.build()) {
+            cr.clear();
+            assertEquals(debug(x), Classification.NOT_A_MATCH, c.apply(x, cr));
+          }
         }
         cr.clear();
       } finally {
@@ -164,7 +153,9 @@ public final class UrlClassifierBuilderTest {
             "%",  // malformed escape sequence
             "\0",
             "data:foo",
-            "%c0%80")  // non-minimal encoding
+            "%c0%80",  // non-minimal encoding
+            "http:/foo"  // Missing authority
+            )
         .expectMatches(
             "",
             "/",
@@ -269,8 +260,8 @@ public final class UrlClassifierBuilderTest {
             .scheme(BuiltinScheme.FILE)
             .pathGlob("/foo/%3f")
             .build())
-         .useContext("file:/")
-        .expectMatches("/foo/%3f", "/foo/%3F")
+        .useContext("file:/")
+        .expectMatches("/foo/%3f", "/foo/%3F", "//localhost/foo/%3f")
         .expectDoesNotMatch("/foo/", "/foo")
         .run();
     // Escaping '%'
@@ -321,11 +312,25 @@ public final class UrlClassifierBuilderTest {
                 .mayHaveKeys("a", "b", "c")
                 .mustHaveKeys("x")
                 .build())
+            .build(),
+
+        UrlClassifiers.builder()
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
+            .schemeData(MediaTypeClassifiers.any())
+            .query(QueryClassifiers.builder()
+                .mayHaveKeys("a")
+                .mustHaveKeys("x")
+                .build())
+            .query(QueryClassifiers.builder()
+                .mayHaveKeys("b", "c")
+                .mustHaveKeys("x")
+                .build())
             .build())
         .useContext("about:invalid")  // Admits query but scheme not whitelisted
         .expectMatches(
             "http://foo/?x=1&a=b",
             "http://foo/?a=b&x",
+            "http://foo/?b=a&x",
             "mailto:foo@example.com?x",
             // This is not actually a query, so the fact that
             // mayHaveKeys("d") was not specified doesn't matter.
@@ -341,36 +346,118 @@ public final class UrlClassifierBuilderTest {
             "mailto:foo@example.com?d"
             )
         .run();
-  }
 
-  @Test
-  public final void testFragment() {
     new TestBuilder(
         UrlClassifiers.builder()
             .scheme(BuiltinScheme.HTTP, BuiltinScheme.MAILTO)
             .schemeData(MediaTypeClassifiers.any())  // Data don't naturally have queries
-            .query(QueryClassifiers.builder()
+            .notQuery(QueryClassifiers.builder()
                 .mayHaveKeys("a", "b", "c")
                 .mustHaveKeys("x")
                 .build())
             .build())
         .useContext("about:invalid")  // Admits query but scheme not whitelisted
         .expectMatches(
-            "http://foo/?x=1&a=b",
-            "http://foo/?a=b&x",
-            "mailto:foo@example.com?x",
-            // This is not actually a query, so the fact that
-            // mayHaveKeys("d") was not specified doesn't matter.
-            // We also don't require query classifiers to match when
-            // the scheme doesn't allow a query.
+            "http://foo/",
+            "http://foo/?x&d",
+            "mailto:foo@example.com",
+            "mailto:foo@example.com?d",
             "data:text/plain,?d=v"
             )
         .expectDoesNotMatch(
             "",
-            "http://foo/",
-            "http://foo/?x&d",
-            "mailto:foo@example.com",
-            "mailto:foo@example.com?d"
+            "http://foo/?x=1&a=b",
+            "http://foo/?a=b&x",
+            "mailto:foo@example.com?x"
+            )
+        .run();
+  }
+
+  @Test
+  public final void testFragment() {
+    FragmentClassifier fragmentMatch = FragmentClassifiers.builder()
+        .match(new Predicate<Optional<String>>() {
+          @Override
+          public boolean apply(Optional<String> input) {
+            return input.isPresent() && input.get().contains("match");
+          }
+        })
+        .build();
+    FragmentClassifier fragmentOk = FragmentClassifiers.builder()
+        .match(new Predicate<Optional<String>>() {
+          @Override
+          public boolean apply(Optional<String> input) {
+            return input.isPresent() && input.get().contains("ok");
+          }
+        })
+        .build();
+
+    new TestBuilder(
+        UrlClassifiers.builder()
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.ABOUT)
+            .schemeData(MediaTypeClassifiers.any())  // Data don't naturally have queries
+            .fragment(fragmentMatch)
+            .fragment(fragmentOk)
+            .build())
+        .expectMatches(
+            "#match",
+            "#ok",
+            "/foo#match",
+            "?foo#match",
+            "//foo#match",
+            "http://foo#match",
+            "data:text/plain,#match",
+            "about:invalid#match"
+            )
+        .expectDoesNotMatch(
+            "",
+            "#not",
+            "#MATCH",
+            // A fragment is not a percent-encoded sequence of bytes.
+            // It is a sequence of pchars.  Decoding is not done before predicates
+            // are applied.
+            "#m%61tch",
+            "#m%41tch",
+            "/foo#not",
+            "?foo#not",
+            "//foo#not",
+            "http://foo#not",
+            "data:text/plain,#not",
+            "about:invalid#not",
+            "file:///#match",  // Scheme not whitelisted
+            "file:///#not"
+            )
+        .run();
+
+    new TestBuilder(
+        UrlClassifiers.builder()
+            .scheme(BuiltinScheme.HTTP, BuiltinScheme.ABOUT)
+            .schemeData(MediaTypeClassifiers.any())  // Data don't naturally have queries
+            .notFragment(fragmentMatch)
+            .build())
+        .expectMatches(
+            "",
+            "#not",
+            "#MATCH",
+            "#m%61tch",
+            "#m%41tch",
+            "/foo#not",
+            "?foo#not",
+            "//foo#not",
+            "http://foo#not",
+            "data:text/plain,#not",
+            "about:invalid#not"
+            )
+        .expectDoesNotMatch(
+            "#match",
+            "/foo#match",
+            "?foo#match",
+            "//foo#match",
+            "http://foo#match",
+            "data:text/plain,#match",
+            "about:invalid#match",
+            "file:///#not",  // Scheme not whitelisted
+            "file:///#match"
             )
         .run();
   }
@@ -387,6 +474,38 @@ public final class UrlClassifierBuilderTest {
   }
 
   @Test
+  public final void testQuirksTolerance() {
+    // Baseline
+    new TestBuilder(
+        UrlClassifiers.builder()
+        .scheme(BuiltinScheme.HTTP)
+        .build())
+    .expectInvalid("../../foo", "%2e%2e/../../..")
+    .expectMatches("/")
+    .run();
+
+    // Dots allowed
+    new TestBuilder(
+        UrlClassifiers.builder()
+        .scheme(BuiltinScheme.HTTP)
+        .tolerate(CornerCase.PATH_SIMPLIFICATION_REACHES_ROOT_PARENT)
+        .build())
+    .expectInvalid("/%0a", "%2e%2e/../../..")
+    .expectMatches("/", "../../foo")
+    .run();
+
+    // CRLF allowed
+    new TestBuilder(
+        UrlClassifiers.builder()
+        .scheme(BuiltinScheme.HTTP)
+        .tolerate(CornerCase.NEWLINES_IN_PATH)
+        .build())
+    .expectInvalid("../../foo", "%2e%2e/../../..")
+    .expectMatches("/", "/%0a")
+    .run();
+  }
+
+  @Test
   public final void testMediaTypes() {
     new TestBuilder(
         UrlClassifiers.builder()
@@ -394,11 +513,34 @@ public final class UrlClassifierBuilderTest {
             MediaTypeClassifiers.builder()
             .type("image", "png")
             .build())
+        .build(),
+
+        UrlClassifiers.builder()
+        .schemeData(
+            MediaTypeClassifiers.builder()
+            .type("image", "png")
+            .type("image", "gif")
+            .build())
+        .build(),
+
+        UrlClassifiers.builder()
+        .schemeData(
+            MediaTypeClassifiers.builder().type("image", "png").build())
+        .schemeData(
+            MediaTypeClassifiers.builder().type("image", "gif").build())
+        .build(),
+
+        UrlClassifiers.builder()
+        .schemeData(
+            MediaTypeClassifiers.builder()
+            .type("image", "gif")
+            .type("image", "png")
+            .build())
         .build())
     .expectMatches("data:image/png;base64,...")
     .expectDoesNotMatch(
         "data:text/html;charset=utf-8,...",
-        "data:image/gif;base64,...")
+        "data:image/jpeg;base64,...")
     .expectInvalid("data:image/svg;")
     .run();
   }
@@ -415,7 +557,20 @@ public final class UrlClassifierBuilderTest {
             AuthorityClassifiers.builder()
             .host("google.com", "bass.de")
             .build())
-        .build())
+        .build(),
+
+        UrlClassifiers.builder()
+        .scheme(BuiltinScheme.HTTP, BuiltinScheme.HTTPS)
+        .authority(
+            AuthorityClassifiers.builder()
+            .host("bass.de")
+            .build())
+        .authority(
+            AuthorityClassifiers.builder()
+            .host("google.com")
+            .build())
+        .build()
+        )
     .expectMatches(
         "http://google.com/", "http://GOOGLE.COM/",
         "http://bass.de/", "http://bass.DE/")
@@ -461,37 +616,76 @@ public final class UrlClassifierBuilderTest {
         + "ZxYbXHHGFH/IMbqafpxwvSKTc3AYQQAAIf4qLyAvLyAgICAgICAgICAgICAgICAg"
         + "ICAgICAgICAgICAgICAgICAgICAgBCAgICAAOw==";
 
+    StringBuilder lotsOfAs = new StringBuilder();
+    for (int i = 4096; --i >= 0;) { lotsOfAs.append('a'); }
+
+    ContentClassifier magicNumberCheck = new ContentClassifier() {
+      @Override
+      public Classification apply(UrlValue x, Receiver<? super UrlValue> r) {
+        Object content = x.getDecodedContent();
+        if (content instanceof ByteBuffer) {
+          ByteBuffer bb = (ByteBuffer) content;
+          int pos = bb.position();
+          if (bb.limit() >= pos + 6
+              && bb.get(pos + 0) == 'G'
+              && bb.get(pos + 1) == 'I'
+              && bb.get(pos + 2) == 'F'
+              && bb.get(pos + 3) == '8'
+              && bb.get(pos + 4) == '9'
+              && bb.get(pos + 5) == 'a') {
+            return Classification.MATCH;
+          }
+        }
+        return Classification.NOT_A_MATCH;
+      }
+    };
+
+    ContentClassifier lengthLimit = new ContentClassifier() {
+
+      @Override
+      public Classification apply(UrlValue x, Receiver<? super UrlValue> r) {
+        Object content = x.getDecodedContent();
+        int length;
+        if (content instanceof CharSequence) {
+          length = ((CharSequence) content).length();
+        } else if (content instanceof ByteBuffer) {
+          length = ((ByteBuffer) content).remaining();
+        } else {
+          return Classification.NOT_A_MATCH;  // Worst-case assumption.
+        }
+        return length <= 2048 ? Classification.MATCH : Classification.NOT_A_MATCH;
+      }
+
+    };
+
     // Tests courtesy "Abusing IDNA Standard" section of
     // https://www.blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf
     new TestBuilder(
         UrlClassifiers.builder()
         .schemeData(MediaTypeClassifiers.builder().type("image", "gif").build())
-        .content(
-            new ContentClassifier() {
-              @Override
-              public Classification apply(UrlValue x, Receiver<? super UrlValue> r) {
-                Object content = x.getDecodedContent();
-                if (content instanceof ByteBuffer) {
-                  ByteBuffer bb = (ByteBuffer) content;
-                  int pos = bb.position();
-                  if (bb.limit() >= pos + 6
-                      && bb.get(pos + 0) == 'G'
-                      && bb.get(pos + 1) == 'I'
-                      && bb.get(pos + 2) == 'F'
-                      && bb.get(pos + 3) == '8'
-                      && bb.get(pos + 4) == '9'
-                      && bb.get(pos + 5) == 'a') {
-                    return Classification.MATCH;
-                  }
-                }
-                return Classification.NOT_A_MATCH;
-              }
-            })
+        .content(magicNumberCheck)
+        .build(),
+
+        UrlClassifiers.builder()
+        .schemeData(MediaTypeClassifiers.builder().type("image", "gif").build())
+        .content(lengthLimit)
+        .build(),
+
+        UrlClassifiers.builder()
+        .schemeData(MediaTypeClassifiers.builder().type("image", "gif").build())
+        .content(lengthLimit)
+        .content(magicNumberCheck)
+        .build(),
+
+        UrlClassifiers.builder()
+        .schemeData(MediaTypeClassifiers.builder().type("image", "gif").build())
+        .content(magicNumberCheck)
+        .content(lengthLimit)
         .build())
     .expectMatches(
         "data:image/gif;base64," + thinkfubase64)
     .expectDoesNotMatch(
-        "data:image/gif;base64,")
+        "data:image/gif;base64," + lotsOfAs)
     .expectInvalid(
         "data:image/gif;base64")
     .run();
