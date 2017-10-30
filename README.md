@@ -36,7 +36,7 @@ class C {
 
   void f() {
     // At runtime, we build a URL value.
-    // Pass in a URLContext if you know the base URL.
+    // Pass in a UrlContext if you know the base URL.
     UrlValue url = UrlValue.from("http://example.com/");
 
     Classification c = CLASSIFIER.apply(
@@ -147,7 +147,7 @@ others, but it can also return `INVALID`.  An `INVALID` URL is one that
     consequences in many implementations.<br>
     For example, `http://example.com/../../../../etc/passwd` is
     equivalent to `http://example.com/etc/passwd` per the specification
-    has been used in [dircectory traversal attacks][dir_traverse]).
+    but has been used in [directory traversal attacks][dir_traverse]).
 
 [dir_traverse]: https://www.owasp.org/index.php/Path_Traversal
 
