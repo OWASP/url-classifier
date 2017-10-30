@@ -9,7 +9,7 @@ Declarative syntax for defining sets of URLs.  No need for error-prone regexs.
 
 ## <a name="usage"></a>Usage <sub><sup>([javadoc][javadoc])</sup></sub>
 
-[javadoc]: http://static.javadoc.io/org.owasp/url/1.2.2/org/owasp/url/package-summary.html#package.description
+[javadoc]: http://static.javadoc.io/org.owasp/url/1.2.3/org/owasp/url/package-summary.html#package.description
 
 ```java
 // Classes are all defined under org.owasp.url
@@ -82,7 +82,7 @@ others, but it can also return `INVALID`.  An `INVALID` URL is one that
 
 [dir_traverse]: https://www.owasp.org/index.php/Path_Traversal
 
-There are several [corner cases](http://static.javadoc.io/org.owasp/url/1.2.2/org/owasp/url/UrlValue.CornerCase.html) that are rejected as `INVALID` by default.
+There are several [corner cases](http://static.javadoc.io/org.owasp/url/1.2.3/org/owasp/url/UrlValue.CornerCase.html) that are rejected as `INVALID` by default.
 
 If you need to treat one or more as valid, you can tell your *UrlClassifier*
 to *tolerate* them thus:
@@ -110,7 +110,7 @@ import static org.owasp.url.UrlValue.CornerCase.*;
 Sometimes its nice to know which URLs do not match a classifier and why.
 
 You can tie UrlClassifiers into your logging framework by implementing
-a [`Diagnostic.Receiver`](http://static.javadoc.io/org.owasp/url/1.2.2/org/owasp/url/Diagnostic.Receiver.html).
+a [`Diagnostic.Receiver`](http://static.javadoc.io/org.owasp/url/1.2.3/org/owasp/url/Diagnostic.Receiver.html).
 
 ```java
 Classification classifyNoisily(UrlClassifier c, UrlValue x) {
