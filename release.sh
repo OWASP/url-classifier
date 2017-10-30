@@ -62,6 +62,7 @@ echo
 
 
 # Dry run
+echo Building dry run
 mvn clean source:jar javadoc:jar verify -DperformRelease=true \
     || (
     if [ -S "${GPG_AGENT_INFO%%:*}" ]; then
@@ -73,7 +74,10 @@ mvn clean source:jar javadoc:jar verify -DperformRelease=true \
     exit -1
 )
 
-export JAR_HASH="$(shasum -a 1 target/url-*.jar)"
+# We need the hash so that users can copy/paste the latest version's
+# BUILD system dependency snippet.
+export JAR_HASH="$(shasum -a 1 -b "target/url-$version.jar" \
+                   | perl -pe 's/\s.*//')"
 
 # Update the version in the docs.
 perl -e 'my $version = $ENV{NEW_VERSION};' \
