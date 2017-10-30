@@ -13,6 +13,17 @@ fi
 
 set -e
 
+function check_ok() {
+    while true; do
+        read -p "Does everything look OK so far (y/n)?" yn
+        case "$yn" in
+            [Yy]* ) return;;
+            [Nn]* ) exit -1;;
+            * ) echo "Please answer 'y' or 'n'.";;
+        esac
+    done
+}
+
 echo Existing tags
 git tag --list
 
@@ -46,6 +57,7 @@ perl -e 'my $version = $ENV{NEW_VERSION};' \
 
 echo Rewrote POM
 git diff pom.xml
+check_ok
 echo
 
 
@@ -77,7 +89,10 @@ perl -e 'my $version = $ENV{NEW_VERSION};' \
 
 echo Rewrote README.md
 git diff README.md
+check_ok
 echo
+
+
 
 
 # Commit and tag the release
