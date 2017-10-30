@@ -46,9 +46,10 @@ export NEW_VERSION="$(echo "$NEW_VERSION" | perl -pe 's/^(?=\d)/v/')"
     echo "Version '$NEW_VERSION' is not a semver tag like 'v1.0.0'."
     exit -1)
 
+export NEW_VERSION_NUMBER="$(perl -e 'my $v = $ENV{NEW_VERSION}; $v =~ s/^v//; print "$v"')"
+
 # Update the pom with the new version.
-perl -e 'my $version = $ENV{NEW_VERSION};' \
-     -e '$version =~ s/^v//;' \
+perl -e 'my $version = $ENV{NEW_VERSION_NUMBER};' \
      -i.bak -pe \
      'unless ($fv) {
         $fv  = 1 if s|<version>[^<]*</|<version>$version</|;
@@ -76,17 +77,16 @@ mvn clean source:jar javadoc:jar verify -DperformRelease=true \
 
 # We need the hash so that users can copy/paste the latest version's
 # BUILD system dependency snippet.
-export JAR_HASH="$(shasum -a 1 -b "target/url-$NEW_VERSION.jar" \
+export JAR_HASH="$(shasum -a 1 -b "target/url-$NEW_VERSION_NUMBER.jar" \
                    | perl -pe 's/\s.*//')"
 
 # Update the version in the docs.
-perl -e 'my $version = $ENV{NEW_VERSION};' \
+perl -e 'my $version = $ENV{NEW_VERSION_NUMBER};' \
      -e 'my $hash = $ENV{JAR_HASH};' \
-     -e '$version =~ s/^v//;' \
      -i.bak -pe \
-     's|(javadoc.io/org.owasp/url/)[\d.]+/|$1$version/|g;
-      s|(artifact\s*=\s*\"org.owasp:url:)[\d.]+\"|$1$version\"|;
-      s|(sha1\s*=\s*\")[^\r\n\"]*\"|$1$hash\"|;
+     's|(javadoc.io/org.owasp/url/)[\d.]+(/)|$1$version$2|g;
+      s|(artifact\s*=\s*\"org.owasp:url:)[\d.]+(\")|$1$version$2|;
+      s|(sha1\s*=\s*\")[^\r\n\"]*(\")|$1$hash$2|;
       s|(url-classifier/archive/v)1.2.3(.zip)|$1$version$2|;
       s|^(    <version>)(\d+)(</version>)|$1$version$2|;' \
      README.md
