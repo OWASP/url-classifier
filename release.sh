@@ -49,18 +49,6 @@ git diff pom.xml
 echo
 
 
-# Update the version in the docs.
-perl -e 'my $version = $ENV{NEW_VERSION};' \
-     -e '$version =~ s/^v//;' \
-     -i.bak -pe \
-     's|(javadoc.io/org.owasp/url/)[\d.]+/|$1$version/|g' \
-     README.md
-
-echo Rewrote README.md
-git diff README.md
-echo
-
-
 # Dry run
 mvn clean source:jar javadoc:jar verify -DperformRelease=true \
     || (
@@ -72,10 +60,30 @@ mvn clean source:jar javadoc:jar verify -DperformRelease=true \
     fi
     exit -1
 )
-echo "Release $NEW_VERSION" > .commit_msg.txt
+
+export JAR_HASH="$(shasum -a 1 target/url-*.jar)"
+
+# Update the version in the docs.
+perl -e 'my $version = $ENV{NEW_VERSION};' \
+     -e 'my $hash = $ENV{JAR_HASH};' \
+     -e '$version =~ s/^v//;' \
+     -i.bak -pe \
+     's|(javadoc.io/org.owasp/url/)[\d.]+/|$1$version/|g;
+      s|(artifact\s*=\s*\"org.owasp:url:)[\d.]+\"|$1$version\"|;
+      s|(sha1\s*=\s*\")[^\r\n\"]*\"|$1$hash\"|;
+      s|^(    <version>)(\d+)(</version>)|$1$version$2|;' \
+     README.md
+
+echo Rewrote README.md
+git diff README.md
+echo
 
 
 # Commit and tag the release
+(echo "# Remove the v since an edit is required";
+ echo;
+ echo "Release $NEW_VERSION") > .commit_msg.txt
+
 git commit -a -t .commit_msg.txt  # Commit the changed POM
 git tag -m "Release $NEW_VERSION" -s "$NEW_VERSION"  # Tag the release
 git push origin "$NEW_VERSION"

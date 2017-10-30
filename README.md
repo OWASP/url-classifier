@@ -4,6 +4,10 @@
 Declarative syntax for defining sets of URLs.  No need for error-prone regexs.
 
   * [Usage](#usage)
+    * [In Bazel](#bazel)
+    * [In Maven](#mvn)
+    * [Invalid URLs](#invalid)
+    * [Diagnostics](#diagnostics)
   * [Problem](#problem)
   * [Simplifying Assumptions](#assumptions)
 
@@ -58,8 +62,51 @@ class C {
 }
 ```
 
+### <a name="bazel"></a> In Bazel
 
-## <a name="invalid"></a> Invalid URLs
+To use in maven, just add to your `WORKSPACE`:
+
+```py
+maven_jar(
+    name = "org_owasp_url",
+    artifact = "org.owasp:url:1.2.3",
+    sha1 = "96cb86e3fa67fb60ddb6982bd969a11e340615aa")
+```
+
+Then in a `BUILD` you can use it thus:
+
+```py
+java_library(
+    name = ...,
+    deps = [
+        "@org_owasp_url//jar",
+        # ...
+    ],
+)
+```
+
+In your `WORKSPACE`, you can replace the `artifact` version with one
+chosen from
+[Maven Central](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22org.owasp%22%20AND%20a%3A%22url%22).
+
+You can check the hash by copying the *jar* link for the version you want
+and adding `.sha1` to the end.
+
+
+### <a name="mvn"></a> In Maven
+
+Add
+
+```xml
+<dependency>
+    <groupId>org.owasp</groupId>
+    <artifactId>url</artifactId>
+    <version>1.2.3</version>
+</dependency>
+```
+
+
+### <a name="invalid"></a> Invalid URLs
 
 A *UrlClassifier* returns `MATCH` for some URLs and `NOT_A_MATCH` for
 others, but it can also return `INVALID`.  An `INVALID` URL is one that
@@ -105,7 +152,7 @@ import static org.owasp.url.UrlValue.CornerCase.*;
 }
 ```
 
-## <a name="diagnostics"></a> Diagnostics
+### <a name="diagnostics"></a> Diagnostics
 
 Sometimes its nice to know which URLs do not match a classifier and why.
 
