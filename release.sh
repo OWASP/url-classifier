@@ -71,6 +71,7 @@ perl -e 'my $version = $ENV{NEW_VERSION};' \
      's|(javadoc.io/org.owasp/url/)[\d.]+/|$1$version/|g;
       s|(artifact\s*=\s*\"org.owasp:url:)[\d.]+\"|$1$version\"|;
       s|(sha1\s*=\s*\")[^\r\n\"]*\"|$1$hash\"|;
+      s|(url-classifier/archive/v)1.2.3(.zip)|$1$version$2|;
       s|^(    <version>)(\d+)(</version>)|$1$version$2|;' \
      README.md
 

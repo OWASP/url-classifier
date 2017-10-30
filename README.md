@@ -67,6 +67,8 @@ class C {
 To use in maven, just add to your `WORKSPACE`:
 
 ```py
+# In WORKSPACE
+
 maven_jar(
     name = "org_owasp_url",
     artifact = "org.owasp:url:1.2.3",
@@ -76,6 +78,8 @@ maven_jar(
 Then in a `BUILD` you can use it thus:
 
 ```py
+# In BUILD
+
 java_library(
     name = ...,
     deps = [
@@ -92,6 +96,22 @@ chosen from
 You can check the hash by copying the *jar* link for the version you want
 and adding `.sha1` to the end.
 
+---
+
+Alternatively, you can use any of the
+[release ZIP files](https://github.com/OWASP/url-classifier/releases)
+with [`http_archive`](https://docs.bazel.build/versions/master/be/workspace.html#http_archive) thus:
+
+```py
+# In WORKSPACE
+
+http_archive(
+    name = "org_owasp_url",
+    url = "https://github.com/OWASP/url-classifier/archive/v1.2.3.zip",
+    hash = "TODO")  # Put hash here
+```
+
+
 
 ### <a name="mvn"></a> In Maven
 
@@ -104,6 +124,8 @@ Add
     <version>1.2.3</version>
 </dependency>
 ```
+
+to your POM's `<dependencies>` or `<dependencyManagement>` section.
 
 
 ### <a name="invalid"></a> Invalid URLs
