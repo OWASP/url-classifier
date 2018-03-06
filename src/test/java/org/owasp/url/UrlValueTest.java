@@ -234,4 +234,32 @@ public final class UrlValueTest {
     assertEquals(mailtoUrl, u.urlText);
     assertEquals(u.toString(), ImmutableSet.of(), u.cornerCases);
   }
+
+  @Test
+  public void testRfc2392() {
+    UrlValue cid0 = UrlValue.from("cid:foo4*foo1@bar.net");
+    UrlValue cid1 = UrlValue.from("cid:foo4*foo1%40bar.net");
+    UrlValue mid0 = UrlValue.from(
+        "mid:960830.1639@XIson.com/partA.960830.1639@XIson.com");
+    UrlValue mid1 = UrlValue.from(
+        "mid:960830.1639%40XIson.com/partA.960830.1639%40XIson.com");
+
+    assertEquals(
+        "cid0",
+        "foo4*foo1@bar.net",
+        cid0.getDecodedContent());
+    assertEquals(
+        "cid1",
+        "foo4*foo1@bar.net",
+        cid1.getDecodedContent());
+
+    assertEquals(
+        "mid0",
+        "960830.1639@XIson.com/partA.960830.1639@XIson.com",
+        mid0.getDecodedContent());
+    assertEquals(
+        "mid1",
+        "960830.1639@XIson.com/partA.960830.1639@XIson.com",
+        mid1.getDecodedContent());
+  }
 }

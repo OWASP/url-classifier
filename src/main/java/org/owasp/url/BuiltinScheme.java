@@ -52,7 +52,7 @@ public final class BuiltinScheme {
   /** https://wiki.whatwg.org/wiki/URL_schemes#about:_URLs */
   public static final Scheme ABOUT = new OpaqueSchemeWithQuery("about");
 
-  /** See https://www.w3.org/TR/FileAPI/#DefinitionOfScheme */
+  /** https://www.w3.org/TR/FileAPI/#DefinitionOfScheme */
   public static final Scheme BLOB = new Scheme(
       ImmutableSet.of("blob"), false, -1, SchemePart.AUTHORITY, SchemePart.CONTENT) {
     @Override
@@ -78,7 +78,7 @@ public final class BuiltinScheme {
         int originRight = lastSlash + 1;
         b.withContent(originRight, fragmentLeft >= 0 ? fragmentLeft : right);
         // Expect the origin to be a URL with an authority and path
-        // like http://quth/path/
+        // like http://auth/path/
         for (int i = originLeft; i < originRight; ++i) {
           char c = schemeSpecificPart.charAt(i);
           if (c == ':') {
@@ -118,7 +118,10 @@ public final class BuiltinScheme {
       throw new UnsupportedOperationException();
     }
   };
-  /** See http://tools.ietf.org/html/2397 */
+  /** https://tools.ietf.org/html/rfc2392 */
+  public static final Scheme CID = new Scheme(
+      ImmutableSet.of("cid"), false, -1, SchemePart.CONTENT);
+  /** https://tools.ietf.org/html/2397 */
   public static final Scheme DATA = new Scheme(
       ImmutableSet.of("data"), false, -1, SchemePart.CONTENT) {
     @Override
@@ -167,7 +170,7 @@ public final class BuiltinScheme {
     @Override
     public Optional<?> decodeContent(
         String schemeSpecificPart, PartRanges ranges) {
-      Optional<CharSequence> decoded =
+      Optional<String> decoded =
           defaultDecodeContent(schemeSpecificPart, ranges);
       if (decoded.isPresent()) {
         if (ranges.contentMetadataLeft >= 0) {
@@ -181,7 +184,7 @@ public final class BuiltinScheme {
                     || schemeSpecificPart.charAt(i + 7) == ';')) {
               byte[] bytes;
               try {
-                bytes = Base64.getDecoder().decode(decoded.get().toString());
+                bytes = Base64.getDecoder().decode(decoded.get());
               } catch (@SuppressWarnings("unused")
                        IllegalArgumentException ex) {
                 return Optional.absent();
@@ -216,6 +219,9 @@ public final class BuiltinScheme {
       SchemePart.CONTENT);
   /** https://tools.ietf.org/html/rfc6068 */
   public static final Scheme MAILTO = new OpaqueSchemeWithQuery("mailto");
+  /** https://tools.ietf.org/html/rfc2392 */
+  public static final Scheme MID = new Scheme(
+      ImmutableSet.of("mid"), false, -1, SchemePart.CONTENT);
   /** https://www.ietf.org/rfc/rfc3966.txt */
   public static final Scheme TEL = new Scheme(
       ImmutableSet.of("tel"), false, -1,
@@ -225,7 +231,7 @@ public final class BuiltinScheme {
   static {
     ImmutableMap.Builder<String, Scheme> b = ImmutableMap.builder();
     for (Scheme s : new Scheme[] {
-        ABOUT, BLOB, DATA, FILE, HTTP, HTTPS, JAVASCRIPT, MAILTO, TEL,
+        ABOUT, BLOB, CID, DATA, FILE, HTTP, HTTPS, JAVASCRIPT, MAILTO, MID, TEL,
     }) {
       for (String name : s.lcaseNames) {
         b.put(name, s);

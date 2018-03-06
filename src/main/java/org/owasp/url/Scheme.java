@@ -304,8 +304,17 @@ public class Scheme {
 
   /**
    * Identifies ranges of structures within the URL.
+   *
+   * <p>This method and all overrides must produce equivalent output given
+   * the same inputs.
+   *
    * @param schemes may be used to further decompose when a URLs embeds
    *     other URLs in its scheme specific part.
+   * @param left The leftmost character (inclusive) of the scheme specific
+   *     part.
+   * @param right The rightmost character (exclusive) of the scheme specific
+   *     part.
+   * @return null if the scheme specific part is not well-formed.
    */
   public PartRanges decompose(
       SchemeLookupTable schemes,
@@ -369,7 +378,17 @@ public class Scheme {
     return b.build();
   }
 
-  /** Appends a scheme specific part onto out using the ranges into source. */
+  /**
+   * Appends a scheme specific part onto out using the ranges into source.
+   *
+   * <p>This method and all overrides must append equivalent output given
+   * the same inputs, and must not destructively modify any input.
+   *
+   * @param source A string that contains the parts of the URL to recompose.
+   *     It need not itself be a valid URL.
+   * @param ranges The position of the parts of the URL to recompose in source.
+   * @param out an output buffer to which the scheme specific part is appended.
+   */
   public void recompose(CharSequence source, PartRanges ranges, StringBuilder out) {
     Preconditions.checkArgument(
         ranges.contentLeft < 0 && ranges.contentMetadataLeft < 0);
@@ -442,11 +461,14 @@ public class Scheme {
     return defaultDecodeContent(schemeSpecificPart, ranges);
   }
 
-  static final Optional<CharSequence> defaultDecodeContent(
+  static final Optional<String> defaultDecodeContent(
       String schemeSpecificPart, PartRanges ranges) {
     if (ranges.contentLeft < 0) { return Optional.absent(); }
-    return Percent.decode(
+    Optional<CharSequence> cs = Percent.decode(
         schemeSpecificPart, ranges.contentLeft, ranges.contentRight, false);
+    return (cs.isPresent())
+        ? Optional.<String>of(cs.get().toString())
+        : Optional.<String>absent();
   }
 
   /** A part of a scheme */
