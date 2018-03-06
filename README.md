@@ -13,7 +13,7 @@ Declarative syntax for defining sets of URLs.  No need for error-prone regexs.
 
 ## <a name="usage"></a>Usage <sub><sup>([javadoc][javadoc])</sup></sub>
 
-[javadoc]: http://static.javadoc.io/org.owasp/url/1.2.3/org/owasp/url/package-summary.html#package.description
+[javadoc]: http://static.javadoc.io/org.owasp/url/1.2.4/org/owasp/url/package-summary.html#package.description
 
 ```java
 // Classes are all defined under org.owasp.url
@@ -71,8 +71,8 @@ To use in maven, just add to your `WORKSPACE`:
 
 maven_jar(
     name = "org_owasp_url",
-    artifact = "org.owasp:url:1.2.3",
-    sha1 = "96cb86e3fa67fb60ddb6982bd969a11e340615aa")
+    artifact = "org.owasp:url:1.2.4",
+    sha1 = "f79cace2e811092dff78bc03b520eade0d675d33")
 ```
 
 Then in a `BUILD` you can use it thus:
@@ -107,7 +107,7 @@ with [`http_archive`](https://docs.bazel.build/versions/master/be/workspace.html
 
 http_archive(
     name = "org_owasp_url",
-    url = "https://github.com/OWASP/url-classifier/archive/v1.2.3.zip",
+    url = "https://github.com/OWASP/url-classifier/archive/v1.2.4.zip",
     hash = "TODO")  # Put hash here
 ```
 
@@ -151,7 +151,7 @@ others, but it can also return `INVALID`.  An `INVALID` URL is one that
 
 [dir_traverse]: https://www.owasp.org/index.php/Path_Traversal
 
-There are several [corner cases](http://static.javadoc.io/org.owasp/url/1.2.3/org/owasp/url/UrlValue.CornerCase.html) that are rejected as `INVALID` by default.
+There are several [corner cases](http://static.javadoc.io/org.owasp/url/1.2.4/org/owasp/url/UrlValue.CornerCase.html) that are rejected as `INVALID` by default.
 
 If you need to treat one or more as valid, you can tell your *UrlClassifier*
 to *tolerate* them thus:
@@ -179,7 +179,7 @@ import static org.owasp.url.UrlValue.CornerCase.*;
 Sometimes its nice to know which URLs do not match a classifier and why.
 
 You can tie UrlClassifiers into your logging framework by implementing
-a [`Diagnostic.Receiver`](http://static.javadoc.io/org.owasp/url/1.2.3/org/owasp/url/Diagnostic.Receiver.html).
+a [`Diagnostic.Receiver`](http://static.javadoc.io/org.owasp/url/1.2.4/org/owasp/url/Diagnostic.Receiver.html).
 
 ```java
 Classification classifyNoisily(UrlClassifier c, UrlValue x) {
