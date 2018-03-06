@@ -483,6 +483,9 @@ public final class UrlValue {
     UrlValue that = (UrlValue) o;
     return this.originalUrlText.equals(that.originalUrlText)
         && this.context.equals(that.context);
+    // Presumably, if the contexts are the same, then we end up with the same
+    // scheme.  This all goes out the window if the context assigns a custom Scheme
+    // whose decompose or recompose functions are not pure functions.
   }
 
   @Override

@@ -46,7 +46,7 @@ import org.owasp.url.Scheme.SchemePart;
  * License: CC0 &lt;https://creativecommons.org/publicdomain/zero/1.0/&gt;
  */
 @SuppressWarnings({ "static-method", "javadoc" })
-public class AbsolutizerTest {
+public final class AbsolutizerTest {
 
   static final String BASE_URI0 = "http://a/b/c/d;p?q";
   static final String BASE_URI1 = "http://a/b/c/d;p?q=1/2";
