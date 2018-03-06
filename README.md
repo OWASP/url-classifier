@@ -108,7 +108,7 @@ with [`http_archive`](https://docs.bazel.build/versions/master/be/workspace.html
 http_archive(
     name = "org_owasp_url",
     url = "https://github.com/OWASP/url-classifier/archive/v1.2.4.zip",
-    hash = "TODO")  # Put hash here
+    sha256 = "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5")
 ```
 
 

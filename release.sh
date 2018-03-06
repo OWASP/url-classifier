@@ -97,8 +97,6 @@ check_ok
 echo
 
 
-
-
 # Commit and tag the release
 (echo "# Remove the v since an edit is required";
  echo;
@@ -107,13 +105,21 @@ echo
 git commit -a -t .commit_msg.txt  # Commit the changed POM
 git tag -m "Release $NEW_VERSION" -s "$NEW_VERSION"  # Tag the release
 git push origin "$NEW_VERSION"
+rm .commit_msg.txt
 
+export ARCHIVE_HASH="$(curl -L "https://github.com/OWASP/url-classifier/archive/$NEW_VERSION.zip" | shasum -a 256 -b \
+                       | perl -pe 's/\s.*//')"
+perl -e 'my $hash = $ENV{ARCHIVE_HASH};' \
+     -i.bak -pe \
+     's|(sha256\s*=\s*\")[^\r\n\"]*(\")|$1$hash$2|;' \
+     README.md
+git commit -m 'update archive hash'
 
 # Actually deploy
 mvn clean source:jar javadoc:jar verify deploy:deploy -DperformRelease=true
 
 # Merge the POM and doc updates back into master
-git push origin master
+git push --tags origin master
 
 
 
