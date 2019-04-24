@@ -59,12 +59,12 @@ public final class PunycodeIdentifierTest {
 
   @Test
   public void testCyrillic() {
-    assertFalse(identifier.isPotentialHomograph("foo.Ьаг.com")); // Cryllic only homograph of 'bar'
+    assertFalse(identifier.isPotentialHomograph("foo.Ьаг.com")); // Cyrillic only homograph of 'bar'
   }
 
   @Test
   public void testCyrillicTld() {
-    assertFalse(identifier.isPotentialHomograph("foo.bar.рф"));
+    assertFalse(identifier.isPotentialHomograph("foo.bar.рф")); // Cyrillic tld
   }
 
   @Test
@@ -108,23 +108,23 @@ public final class PunycodeIdentifierTest {
   }
 
   @Test
-  public void testHanBopomofo() {
-    assertFalse(identifier.isPotentialHomograph("买无ㄊ.com")); // Bopomofo 310A
+  public void testHanLatinHiraganaKatakana() {
+    assertFalse(identifier.isPotentialHomograph("cool-website-电おオ.com"));
   }
 
   @Test
-  public void testHanHangul() {
-    assertFalse(identifier.isPotentialHomograph("买无ᄊ.com")); // Hangul 110A
+  public void testHanLatinBopomofo() {
+    assertFalse(identifier.isPotentialHomograph("买无ㄊneat.com")); // Bopomofo 310A
+  }
+
+  @Test
+  public void testHanLatinHangul() {
+    assertFalse(identifier.isPotentialHomograph("买无greatᄊ.com")); // Hangul 110A
   }
 
   @Test
   public void testHanBopomofoHangul() {
-    assertTrue(identifier.isPotentialHomograph("买无ㄊᄊ.com"));
-  }
-
-  @Test
-  public void testHanLatinHiraganaKatakana() {
-    assertFalse(identifier.isPotentialHomograph("cool-website-电おオ.com"));
+    assertTrue(identifier.isPotentialHomograph("买无ㄊᄊ.com")); // Han simplified characters for 'buy' and  'nothing', Bopomofo 310A, and Hangul 110A
   }
 
   @Test
