@@ -42,6 +42,5 @@ public interface UrlClassifier {
    *     Pass {@link Diagnostic.Receiver#NULL} if you only need the result.
    * @return the classification of x
    */
-  public Classification apply(UrlValue x, Diagnostic.Receiver<? super UrlValue> r);
-
+  Classification apply(UrlValue x, Diagnostic.Receiver<? super UrlValue> r);
 }

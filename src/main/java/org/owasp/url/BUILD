@@ -3,8 +3,8 @@ package(
 )
 
 JAVAC_OPTS = [
-    "-target", "6",
-    "-source", "6",
+    "-target", "8",
+    "-source", "8",
     ]
 
 
