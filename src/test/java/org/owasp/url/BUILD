@@ -58,8 +58,8 @@ sh_test(
     name = "grammar_fuzzer_test",
     srcs = ["grammar_fuzzer_test.sh"],
     data = [
-        "@gramtest_jar//file",
-        "@gramtest_url_bnf//file",
+        "@gramtest_jar//jar",
+        "url.bnf",
         "FuzzUrlValue_deploy.jar",
     ],
 )

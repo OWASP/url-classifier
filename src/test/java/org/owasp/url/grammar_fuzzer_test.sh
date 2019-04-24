@@ -14,8 +14,8 @@ set -e
 [ -n "$TEST_SRCDIR" ]
 
 # Check that bazel put runfiles where we expect them
-export FUZZER_JAR="$TEST_SRCDIR/gramtest_jar/file/gramtest-0.2.2.jar"
-export GRAMMAR_FILE="$TEST_SRCDIR/gramtest_url_bnf/file/url.bnf"
+export FUZZER_JAR="$TEST_SRCDIR/gramtest_jar/jar/downloaded.jar"
+export GRAMMAR_FILE="$TEST_SRCDIR/__main__/src/test/java/org/owasp/url/url.bnf"
 export CONSUMER_JAR="$TEST_SRCDIR/__main__/src/test/java/org/owasp/url/FuzzUrlValue_deploy.jar"
 
 [ -f "$FUZZER_JAR" ]   || (echo "No $FUZZER_JAR";   exit -1)
