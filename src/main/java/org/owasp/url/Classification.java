@@ -36,7 +36,7 @@ public enum Classification {
   NOT_A_MATCH,
   /** The URL input does match the classifier. */
   MATCH,
-  /** THe URL input is structurally invalid. */
+  /** The URL input is structurally invalid. */
   INVALID,
   ;
 

@@ -28,12 +28,6 @@
 
 package org.owasp.url;
 
-import java.net.Inet4Address;
-import java.net.Inet6Address;
-import java.net.InetAddress;
-import java.util.Arrays;
-import java.util.Iterator;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -42,6 +36,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.InetAddresses;
 import com.google.common.net.InternetDomainName;
 import com.ibm.icu.text.IDNA;
+
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.util.Arrays;
+import java.util.Iterator;
 
 /**
  * Builder for {@link AuthorityClassifier}s.
@@ -72,6 +72,7 @@ public final class AuthorityClassifierBuilder {
   private boolean matchesAnyHost = false;
   private final ImmutableSet.Builder<Integer> allowedPorts = ImmutableSet.builder();
   private Predicate<? super Integer> allowedPortClassifier = null;
+  private PunycodeIdentifier punycodeIdentifier = null;
   private UserInfoClassifier allowedUserInfoClassifier = null;
   // We intentionally do not allow matching against a password.
   // There is no way to match http://msamuel:hello-kitty@google.com/
@@ -113,6 +114,7 @@ public final class AuthorityClassifierBuilder {
         this.allowedUserInfoClassifier != null
         ? this.allowedUserInfoClassifier
         : UserInfoClassifiers.NO_PASSWORD_BUT_USERNAME_IF_ALLOWED_BY_SCHEME;
+    PunycodeIdentifier punycodeIdentifier = PunycodeIdentifierBuilder.DEFAULT;
     return new AuthorityClassifierImpl(
         ipv4Set,
         ipv6Set,
@@ -121,6 +123,7 @@ public final class AuthorityClassifierBuilder {
         matchesAnyHost,
         allowedPortsSorted,
         portClassifier,
+        punycodeIdentifier,
         userInfoClassifier);
   }
 
@@ -271,6 +274,7 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
   private final boolean matchesAnyHost;
   private final int[] allowedPortsSorted;
   private final Predicate<? super Integer> portClassifier;
+  private final PunycodeIdentifier punycodeIdentifier;
   private final UserInfoClassifier userInfoClassifier;
 
   enum Diagnostics implements Diagnostic {
@@ -278,13 +282,14 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
     DISALLOWED_PORT,
     MISSING_HOST,
     HOST_NOT_IN_APPROVED_SET,
+    POTENTIAL_HOMOGRAPH,
   }
 
   public AuthorityClassifierImpl(
       ImmutableSet<Inet4Address> ipv4Set, ImmutableSet<Inet6Address> ipv6Set,
       ImmutableSet<InternetDomainName> canonHostnameSet, HostGlobMatcher hostGlobMatcher,
       boolean matchesAnyHost, int[] allowedPortsSorted, Predicate<? super Integer> portClassifier,
-      UserInfoClassifier userInfoClassifier) {
+      PunycodeIdentifier punycodeIdentifier, UserInfoClassifier userInfoClassifier) {
     this.ipv4Set = ipv4Set;
     this.ipv6Set = ipv6Set;
     this.domainNameSet = canonHostnameSet;
@@ -292,6 +297,7 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
     this.matchesAnyHost = matchesAnyHost;
     this.allowedPortsSorted = allowedPortsSorted;
     this.portClassifier = portClassifier;
+    this.punycodeIdentifier = punycodeIdentifier;
     this.userInfoClassifier = userInfoClassifier;
   }
 
@@ -319,13 +325,14 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
       result = Classification.NOT_A_MATCH;
     }
 
-    switch (this.userInfoClassifier.apply(x,  r)) {
+    switch (this.userInfoClassifier.apply(x, r)) {
       case INVALID:
         return Classification.INVALID;
       case NOT_A_MATCH:
         result = Classification.NOT_A_MATCH;
         break;
-      case MATCH: break;
+      case MATCH:
+        break;
     }
 
     int port = auth.portOrNegOne;
@@ -361,6 +368,11 @@ final class AuthorityClassifierImpl implements AuthorityClassifier {
           }
         } else {
           InternetDomainName name = (InternetDomainName) hostValue;
+
+          if (punycodeIdentifier.isPotentialHomograph(name.toString())) {
+            r.note(Diagnostics.POTENTIAL_HOMOGRAPH, x);
+          }
+
           if (!(domainNameSet.contains(name) || hostGlobMatcher.matches(name))) {
             r.note(Diagnostics.HOST_NOT_IN_APPROVED_SET, x);
             result = Classification.NOT_A_MATCH;

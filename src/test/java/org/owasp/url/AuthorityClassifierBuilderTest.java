@@ -282,6 +282,22 @@ public final class AuthorityClassifierBuilderTest {
   }
 
   @Test
+  public void testPunycodeDomainSpoof() {
+    runTests(
+        AuthorityClassifiers.builder()
+            .host("google.com")
+            .build(),
+        ImmutableMap.of(
+            Classification.NOT_A_MATCH,
+            ImmutableList.of(
+                "https://googӏе.com/", // punycode mixed-script homograph of google
+                "https://xn--goog-y4d73g.com/", // ascii representation of the homograph,
+                "https://goog1e.com/" // single-script inelegant homograph
+            )
+        ));
+  }
+
+  @Test
   public void testSingleIntegerPortExclusion() {
     runCommonTestsWith(
         AuthorityClassifiers.builder()
